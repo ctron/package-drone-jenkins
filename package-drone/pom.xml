@@ -1,25 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-  <modelVersion>4.0.0</modelVersion>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
 
-  <parent>
-    <groupId>org.jenkins-ci.plugins</groupId>
-    <artifactId>plugin</artifactId>
-    <!-- Baseline Jenkins version you use to build and test the plugin. Users must have this version or newer to run. -->
-    <version>1.580.1</version>
-    <relativePath />
-  </parent>
-  
-  <groupId>de.dentrassi.pm.jenkins</groupId>
-  <artifactId>package-drone</artifactId>
-  <version>0.1.1-SNAPSHOT</version>
-  <packaging>hpi</packaging>
+	<parent>
+		<groupId>org.jenkins-ci.plugins</groupId>
+		<artifactId>plugin</artifactId>
+		<!-- Baseline Jenkins version you use to build and test the plugin. Users 
+			must have this version or newer to run. -->
+		<version>1.580.1</version>
+		<relativePath />
+	</parent>
 
-  <name>Package Drone Deployer</name>
-  <description>Deploy artifact to a Package Drone instance</description>
-  
-  <url>https://wiki.jenkins-ci.org/display/JENKINS/Package+Drone+Plugin</url>
-  
+	<groupId>de.dentrassi.pm.jenkins</groupId>
+	<artifactId>package-drone</artifactId>
+	<version>0.1.2-SNAPSHOT</version>
+	<packaging>hpi</packaging>
+
+	<name>Package Drone Deployer</name>
+	<description>Deploy artifact to a Package Drone instance</description>
+
+	<url>https://wiki.jenkins-ci.org/display/JENKINS/Package+Drone+Plugin</url>
+
 	<licenses>
 		<license>
 			<name>Eclipse Public License - v 1.0</name>
@@ -27,8 +29,8 @@
 			<url>https://www.eclipse.org/legal/epl-v10.html</url>
 		</license>
 	</licenses>
-	  
-  <developers>
+
+	<developers>
 		<developer>
 			<name>Jens Reimann</name>
 			<email>ctron@dentrassi.de</email>
@@ -36,38 +38,54 @@
 			<organizationUrl>http://ibh-systems.com</organizationUrl>
 			<url>http://dentrassi.de</url>
 		</developer>
-  </developers>
-  
-  	<scm>
-  		<url>https://github.com/ctron/package-drone-jenkins</url>
+	</developers>
+
+	<scm>
+		<url>https://github.com/ctron/package-drone-jenkins</url>
 		<connection>scm:git:git://github.com/ctron/package-drone-jenkins.git</connection>
 		<developerConnection>scm:git:git@github.com:ctron/package-drone-jenkins.git</developerConnection>
-	  <tag>HEAD</tag>
-  </scm>
-  
-  <repositories>
-    <repository>
-      <id>repo.jenkins-ci.org</id>
-      <url>http://repo.jenkins-ci.org/public/</url>
-    </repository>
-  </repositories>
-  <pluginRepositories>
-    <pluginRepository>
-      <id>repo.jenkins-ci.org</id>
-      <url>http://repo.jenkins-ci.org/public/</url>
-    </pluginRepository>
-  </pluginRepositories>
-  <dependencies>
-    <dependency>
-      <groupId>org.jenkins-ci.plugins</groupId>
-      <artifactId>credentials</artifactId>
-      <version>1.9.4</version>
-    </dependency>
-    <dependency>
-    	<groupId>org.apache.httpcomponents</groupId>
-    	<artifactId>httpclient</artifactId>
-    	<version>4.2.5</version>
-    </dependency>
-  </dependencies>
+		<tag>HEAD</tag>
+	</scm>
+
+	<repositories>
+		<repository>
+			<id>repo.jenkins-ci.org</id>
+			<url>http://repo.jenkins-ci.org/public/</url>
+		</repository>
+	</repositories>
+	<pluginRepositories>
+		<pluginRepository>
+			<id>repo.jenkins-ci.org</id>
+			<url>http://repo.jenkins-ci.org/public/</url>
+		</pluginRepository>
+	</pluginRepositories>
+	<dependencies>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins</groupId>
+			<artifactId>credentials</artifactId>
+			<version>1.9.4</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpclient</artifactId>
+			<version>4.2.5</version>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-release-plugin</artifactId>
+				<dependencies>
+					<dependency>
+						<groupId>org.apache.maven.scm</groupId>
+						<artifactId>maven-scm-provider-gitexe</artifactId>
+						<version>1.9.4</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+		</plugins>
+	</build>
 
 </project>
