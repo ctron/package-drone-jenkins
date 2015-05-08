@@ -40,8 +40,8 @@
   </developers>
   
   	<scm>
-		<connection>scm:git:git://github.com/ctron/package-drone-jenkins</connection>
-		<developerConnection>scm:git:ssh://git@github.com/ctron/package-drone-jenkins.git</developerConnection>
+		<connection>scm:git:git://github.com/ctron/package-drone-jenkins.git</connection>
+		<developerConnection>scm:git:git@github.com/ctron/package-drone-jenkins.git</developerConnection>
 		<url>https://github.com/ctron/package-drone-jenkins</url>
 	</scm>
   
