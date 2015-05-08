@@ -1,0 +1,22 @@
+<?jelly escape-by-default='true'?>
+
+<j:jelly
+	xmlns:j="jelly:core"
+	xmlns:st="jelly:stapler"
+	xmlns:d="jelly:define"
+	xmlns:l="/lib/layout"
+	xmlns:t="/lib/hudson"
+	xmlns:f="/lib/form"
+	xmlns:i="jelly:fmt">
+	
+	<t:summary icon="/plugin/package-drone/images/pdrone-48x48.png">
+		<strong>Channel</strong>: <a href="${it.urlName}">${it.channel}</a>
+		
+		<ul>
+		<j:forEach var="entry" items="${it.artifacts}">
+			<li><a href="${it.serverUrl}/artifact/${entry.value}/view">${entry.key}</a></li>
+        </j:forEach>
+        </ul>
+		
+	</t:summary>
+</j:jelly>
