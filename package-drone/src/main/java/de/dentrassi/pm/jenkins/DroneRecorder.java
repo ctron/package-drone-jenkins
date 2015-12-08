@@ -23,7 +23,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.collections.map.HashedMap;
 import org.apache.commons.httpclient.URIException;
 import org.apache.commons.httpclient.util.URIUtil;
 import org.apache.http.HttpEntity;
@@ -45,8 +44,6 @@ import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Util;
 import hudson.model.AbstractProject;
-import hudson.model.Action;
-import hudson.model.ProminentProjectAction;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
@@ -184,7 +181,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
             b.setUserInfo ( "deploy", this.deployKey );
 
-            b.setPath ( b.getPath () + String.format ( "/api/v1/upload/channel/%s/%s", URIUtil.encodeWithinPath ( this.channel ), file ) );
+            b.setPath ( b.getPath () + String.format ( "/api/v2/upload/channel/%s/%s", URIUtil.encodeWithinPath ( this.channel ), file ) );
 
             b.addParameter ( "jenkins:buildId", "" + run.getNumber () );
 
