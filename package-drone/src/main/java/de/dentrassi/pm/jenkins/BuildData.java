@@ -27,11 +27,11 @@ public class BuildData implements Action, Serializable, Cloneable, ProminentProj
 {
     private static final long serialVersionUID = 1L;
 
-    private String serverUrl;
+    private final String serverUrl;
 
-    private String channel;
+    private final String channel;
 
-    private Map<String, String> artifacts = new HashMap<String, String> ();
+    private final Map<String, String> artifacts;
 
     public BuildData ( String serverUrl, String channel, Map<String, String> artifacts )
     {
