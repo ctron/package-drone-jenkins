@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2015 IBH SYSTEMS GmbH.
+ * Copyright (c) 2015, 2016 IBH SYSTEMS GmbH.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -56,6 +56,7 @@ import hudson.tasks.Publisher;
 import hudson.tasks.Recorder;
 import hudson.util.FormValidation;
 import jenkins.MasterToSlaveFileCallable;
+import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
 
 @SuppressWarnings ( "unchecked" )
@@ -186,7 +187,13 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
             b.setPath ( b.getPath () + String.format ( "/api/v2/upload/channel/%s/%s", URIUtil.encodeWithinPath ( this.channel ), file ) );
 
-            b.addParameter ( "jenkins:buildId", "" + run.getNumber () );
+            Jenkins jenkins = Jenkins.getInstance ();
+
+            String url = jenkins.getRootUrl () + run.getUrl ();
+
+            b.addParameter ( "jenkins:buildId", String.valueOf ( run.getNumber () ) );
+            b.addParameter ( "jenkins:buildUrl", url );
+            b.addParameter ( "jenkins:jobName", run.getParent ().getFullName () );
 
             fullUri = b.build ();
 
@@ -293,10 +300,11 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
             final String artId = CharStreams.toString ( new InputStreamReader ( resEntity.getContent (), "UTF-8" ) ).trim ();
 
             this.listener.getLogger ().format ( "Uploaded %s as ", fileName );
-            
+
+            // FIXME: uploading can use channel alias, linking of artifacts not
             // this.listener.hyperlink ( makeArtUrl ( artId ), artId );
             this.listener.getLogger ().print ( artId ); // stick to plain id for now
-            
+
             this.listener.getLogger ().println ();
 
             this.artifacts.put ( fileName, artId );
@@ -304,7 +312,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
         private String makeArtUrl ( String artId ) throws URIException
         {
-            return String.format ( "%s/channel/%s/artifacts/%s/view", DroneRecorder.this.serverUrl, encodeWithinPath ( DroneRecorder.this.channel ), encodeWithinPath ( artId  ) );
+            return String.format ( "%s/channel/%s/artifacts/%s/view", DroneRecorder.this.serverUrl, encodeWithinPath ( DroneRecorder.this.channel ), encodeWithinPath ( artId ) );
         }
 
     }
