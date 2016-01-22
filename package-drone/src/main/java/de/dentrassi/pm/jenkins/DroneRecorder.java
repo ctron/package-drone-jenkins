@@ -191,7 +191,8 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
             String url = jenkins.getRootUrl () + run.getUrl ();
 
-            b.addParameter ( "jenkins:buildId", String.valueOf ( run.getNumber () ) );
+            b.addParameter ( "jenkins:buildId", run.getId () );
+            b.addParameter ( "jenkins:buildNumber", String.valueOf ( run.getNumber () ) );
             b.addParameter ( "jenkins:buildUrl", url );
             b.addParameter ( "jenkins:jobName", run.getParent ().getFullName () );
 
