@@ -21,6 +21,7 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -73,6 +74,8 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     private String excludes = "";
 
     private boolean defaultExcludes = true;
+    
+    private  boolean stripPath;
 
     @DataBoundConstructor
     public DroneRecorder ( String serverUrl, String channel, String deployKey, String artifacts )
@@ -93,6 +96,12 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     public void setDefaultExcludes ( boolean defaultExcludes )
     {
         this.defaultExcludes = defaultExcludes;
+    }
+    
+    @DataBoundSetter
+    public void setStripPath ( boolean stripPath )
+    {
+        this.stripPath = stripPath;
     }
 
     @Override
@@ -130,11 +139,15 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     {
         return defaultExcludes;
     }
+    
+    public boolean isStripPath ()
+    {
+        return stripPath;
+    }
 
     @Extension
     public static class DescriptorImpl extends BuildStepDescriptor<Publisher>
     {
-
         @SuppressWarnings ( "rawtypes" )
         @Override
         public boolean isApplicable ( Class<? extends AbstractProject> jobType )
@@ -162,7 +175,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
         final String artifacts = run.getEnvironment ( listener ).expand ( this.artifacts );
 
-        final UploadFiles uploader = new UploadFiles ( artifacts, this.excludes, this.defaultExcludes, run, listener );
+        final UploadFiles uploader = new UploadFiles ( artifacts, this.excludes, this.defaultExcludes, this.stripPath, run, listener );
         try
         {
             workspace.act ( uploader );
@@ -222,11 +235,14 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
         private final Map<String, String> artifacts = new HashMap<String, String> ();
 
-        UploadFiles ( String includes, String excludes, boolean defaultExcludes, final Run<?, ?> run, TaskListener listener )
+        private boolean stripPath;
+
+        UploadFiles ( String includes, String excludes, boolean defaultExcludes, boolean stripPath, final Run<?, ?> run, TaskListener listener )
         {
             this.includes = includes;
             this.excludes = excludes;
             this.defaultExcludes = defaultExcludes;
+            this.stripPath = stripPath;
 
             this.run = run;
             this.listener = listener;
@@ -244,12 +260,22 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         {
             final List<String> result = new LinkedList<String> ();
 
-            final FileSet fileSet = Util.createFileSet ( basedir, includes, excludes );
-            fileSet.setDefaultexcludes ( defaultExcludes );
+            final FileSet fileSet = Util.createFileSet ( basedir, this.includes, this.excludes );
+            fileSet.setDefaultexcludes ( this.defaultExcludes );
 
             for ( String f : fileSet.getDirectoryScanner ().getIncludedFiles () )
             {
-                performUpload ( new File ( basedir, f ), f );
+                File file = new File ( basedir, f );
+                String filename;
+                if ( this.stripPath )
+                {
+                    filename = file.getName ();
+                }
+                else
+                {
+                    filename = f;
+                }
+                performUpload (file , filename );
             }
 
             return result;
@@ -257,7 +283,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
         public void performUpload ( File file, String fileName ) throws URIException, IOException
         {
-            final URI uri = makeUrl ( fileName, run );
+            final URI uri = makeUrl ( fileName, this.run );
 
             final HttpPut httppost = new HttpPut ( uri );
 
@@ -267,7 +293,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
                 httppost.setEntity ( new InputStreamEntity ( stream, file.length () ) );
 
-                final HttpResponse response = httpclient.execute ( httppost );
+                final HttpResponse response = this.httpclient.execute ( httppost );
                 final HttpEntity resEntity = response.getEntity ();
 
                 if ( resEntity != null )
@@ -291,14 +317,14 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
         private void addUploadFailure ( String fileName, HttpResponse response ) throws UnsupportedEncodingException, IOException
         {
-            final String message = CharStreams.toString ( new InputStreamReader ( response.getEntity ().getContent (), "UTF-8" ) ).trim ();
+            final String message = CharStreams.toString ( new InputStreamReader ( response.getEntity ().getContent (), StandardCharsets.UTF_8 ) ).trim ();
 
             this.listener.error ( "Failed to upload %s: %s %s = %s", fileName, response.getStatusLine ().getStatusCode (), response.getStatusLine ().getReasonPhrase (), message );
         }
 
         private void addUploadedArtifacts ( String fileName, HttpEntity resEntity ) throws IOException, UnsupportedEncodingException
         {
-            final String artId = CharStreams.toString ( new InputStreamReader ( resEntity.getContent (), "UTF-8" ) ).trim ();
+            final String artId = CharStreams.toString ( new InputStreamReader ( resEntity.getContent (), StandardCharsets.UTF_8 ) ).trim ();
 
             this.listener.getLogger ().format ( "Uploaded %s as ", fileName );
 
