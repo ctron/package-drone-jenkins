@@ -21,7 +21,7 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -43,6 +43,7 @@ import org.kohsuke.stapler.QueryParameter;
 
 import com.google.common.io.CharStreams;
 
+import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
@@ -63,11 +64,13 @@ import jenkins.tasks.SimpleBuildStep;
 @SuppressWarnings ( "unchecked" )
 public class DroneRecorder extends Recorder implements SimpleBuildStep
 {
-    private final String serverUrl;
+	private static final Charset UTF_8 = Charset.forName("UTF-8");
 
-    private final String channel;
+    private String serverUrl;
 
-    private final String deployKey;
+    private String channel;
+
+    private String deployKey;
 
     private final String artifacts;
 
@@ -80,10 +83,10 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     @DataBoundConstructor
     public DroneRecorder ( String serverUrl, String channel, String deployKey, String artifacts )
     {
-        this.serverUrl = serverUrl.trim ();
-        this.channel = channel.trim ();
+        this.serverUrl = Util.fixEmptyAndTrim ( serverUrl );
+        this.channel = Util.fixEmptyAndTrim ( channel );
         this.artifacts = artifacts;
-        this.deployKey = deployKey.trim ();
+        this.deployKey = Util.fixEmptyAndTrim ( deployKey );
     }
 
     @DataBoundSetter
@@ -171,9 +174,14 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     @Override
     public void perform ( Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener ) throws InterruptedException, IOException
     {
+        EnvVars env = run.getEnvironment ( listener );
+        this.serverUrl = Util.replaceMacro( this.serverUrl, env);
+        this.channel = Util.replaceMacro( this.channel, env);
+        this.deployKey = Util.replaceMacro( this.deployKey, env);
+
         listener.getLogger ().format ( "Package Drone Server URL: %s%n", this.serverUrl );
 
-        final String artifacts = run.getEnvironment ( listener ).expand ( this.artifacts );
+		final String artifacts = env.expand ( this.artifacts );
 
         final UploadFiles uploader = new UploadFiles ( artifacts, this.excludes, this.defaultExcludes, this.stripPath, run, listener );
         try
@@ -200,13 +208,14 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
             b.setPath ( b.getPath () + String.format ( "/api/v2/upload/channel/%s/%s", URIUtil.encodeWithinPath ( this.channel ), file ) );
 
-            Jenkins jenkins = Jenkins.getInstance ();
-
-            String url = jenkins.getRootUrl () + run.getUrl ();
-
+            String jenkinsUrl = Jenkins.getInstance ().getRootUrl ();
+            if (jenkinsUrl != null )
+            {
+            	String url = jenkinsUrl + run.getUrl ();
+            	b.addParameter ( "jenkins:buildUrl", url );
+            }
             b.addParameter ( "jenkins:buildId", run.getId () );
             b.addParameter ( "jenkins:buildNumber", String.valueOf ( run.getNumber () ) );
-            b.addParameter ( "jenkins:buildUrl", url );
             b.addParameter ( "jenkins:jobName", run.getParent ().getFullName () );
 
             fullUri = b.build ();
@@ -317,14 +326,14 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
         private void addUploadFailure ( String fileName, HttpResponse response ) throws UnsupportedEncodingException, IOException
         {
-            final String message = CharStreams.toString ( new InputStreamReader ( response.getEntity ().getContent (), StandardCharsets.UTF_8 ) ).trim ();
+            final String message = CharStreams.toString ( new InputStreamReader ( response.getEntity ().getContent (), UTF_8 ) ).trim ();
 
             this.listener.error ( "Failed to upload %s: %s %s = %s", fileName, response.getStatusLine ().getStatusCode (), response.getStatusLine ().getReasonPhrase (), message );
         }
 
         private void addUploadedArtifacts ( String fileName, HttpEntity resEntity ) throws IOException, UnsupportedEncodingException
         {
-            final String artId = CharStreams.toString ( new InputStreamReader ( resEntity.getContent (), StandardCharsets.UTF_8 ) ).trim ();
+            final String artId = CharStreams.toString ( new InputStreamReader ( resEntity.getContent (), UTF_8 ) ).trim ();
 
             this.listener.getLogger ().format ( "Uploaded %s as ", fileName );
 
