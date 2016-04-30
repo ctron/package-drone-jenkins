@@ -7,6 +7,7 @@
  *
  * Contributors:
  *     IBH SYSTEMS GmbH - initial API and implementation
+ *     Nikolas Falco - author of some PRs
  *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
@@ -26,6 +27,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
+import javax.annotation.Nonnull;
 
 import org.apache.commons.httpclient.URIException;
 import org.apache.commons.httpclient.util.URIUtil;
@@ -49,6 +52,7 @@ import hudson.Launcher;
 import hudson.Util;
 import hudson.model.AbstractProject;
 import hudson.model.Run;
+import hudson.model.Result;
 import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
 import hudson.tasks.BuildStepDescriptor;
@@ -75,7 +79,17 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
     private boolean defaultExcludes = true;
     
-    private  boolean stripPath;
+    private boolean stripPath;
+
+    /**
+     * Fail (or not) the build if archiving returns nothing.
+     */
+    private boolean allowEmptyArchive;
+
+    /**
+     * Fail (or not) the build if artifacts upload fails.
+     */
+    private boolean failsAsUpload;
 
     @DataBoundConstructor
     public DroneRecorder ( String serverUrl, String channel, String deployKey, String artifacts )
@@ -108,6 +122,18 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     public BuildStepMonitor getRequiredMonitorService ()
     {
         return BuildStepMonitor.NONE;
+    }
+
+    @DataBoundSetter
+    public void setAllowEmptyArchive ( boolean allowEmptyArchive )
+    {
+        this.allowEmptyArchive = allowEmptyArchive;
+    }
+
+    @DataBoundSetter
+    public void setFailsAsUpload ( boolean failsAsUpload )
+    {
+        this.failsAsUpload = failsAsUpload;
     }
 
     public String getServerUrl ()
@@ -144,7 +170,17 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     {
         return stripPath;
     }
-
+    
+    public boolean isAllowEmptyArchive ()
+    {
+        return allowEmptyArchive;
+    }
+    
+    public boolean isFailsAsUpload ()
+    {
+        return failsAsUpload;
+    }
+    
     @Extension
     public static class DescriptorImpl extends BuildStepDescriptor<Publisher>
     {
@@ -183,6 +219,11 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         finally
         {
             uploader.close ();
+
+            if ( uploader.isFailed() && this.failsAsUpload )
+            {
+            	run.setResult(Result.FAILURE);
+            }
         }
 
         run.addAction ( new BuildData ( this.serverUrl, this.channel, uploader.artifacts ) );
@@ -236,8 +277,14 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         private final Map<String, String> artifacts = new HashMap<String, String> ();
 
         private boolean stripPath;
+        
+        private boolean failed;
 
-        UploadFiles ( String includes, String excludes, boolean defaultExcludes, boolean stripPath, final Run<?, ?> run, TaskListener listener )
+        public boolean isFailed() {
+			return failed;
+		}
+
+		UploadFiles ( String includes, String excludes, boolean defaultExcludes, boolean stripPath, final Run<?, ?> run, TaskListener listener )
         {
             this.includes = includes;
             this.excludes = excludes;
@@ -263,7 +310,13 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
             final FileSet fileSet = Util.createFileSet ( basedir, this.includes, this.excludes );
             fileSet.setDefaultexcludes ( this.defaultExcludes );
 
-            for ( String f : fileSet.getDirectoryScanner ().getIncludedFiles () )
+            String[] includedFiles = fileSet.getDirectoryScanner ().getIncludedFiles ();
+            if ( includedFiles.length == 0 && !isAllowEmptyArchive () )
+            {
+            	run.setResult ( Result.FAILURE );
+            }
+
+            for ( String f : includedFiles )
             {
                 File file = new File ( basedir, f );
                 String filename;
@@ -317,6 +370,8 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
         private void addUploadFailure ( String fileName, HttpResponse response ) throws UnsupportedEncodingException, IOException
         {
+        	this.failed = true;
+
             final String message = CharStreams.toString ( new InputStreamReader ( response.getEntity ().getContent (), StandardCharsets.UTF_8 ) ).trim ();
 
             this.listener.error ( "Failed to upload %s: %s %s = %s", fileName, response.getStatusLine ().getStatusCode (), response.getStatusLine ().getReasonPhrase (), message );
