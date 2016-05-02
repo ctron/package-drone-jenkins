@@ -38,6 +38,11 @@
 			<organizationUrl>http://ibh-systems.com</organizationUrl>
 			<url>http://dentrassi.de</url>
 		</developer>
+		<developer>
+			<id>nfalco79</id>
+			<name>Nikolas Falco</name>
+			<email>nfalco79@hotmail.com</email>
+		</developer>
 	</developers>
 
 	<scm>

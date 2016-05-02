@@ -38,6 +38,14 @@
 		<f:entry field="stripPath" >
 			<f:checkbox title="${%stripPath}" default="true"/>
 		</f:entry>
+
+		<f:entry field="allowEmptyArchive" >
+			<f:checkbox title="${%allowEmptyArchive}" default="false"/>
+		</f:entry>
+
+		<f:entry field="failsAsUpload" >
+			<f:checkbox title="${%failsAsUpload}" default="false"/>
+		</f:entry>
 	
 	</f:advanced>
         
