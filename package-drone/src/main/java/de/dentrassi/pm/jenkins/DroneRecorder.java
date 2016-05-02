@@ -381,14 +381,14 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         {
             this.failed = true;
 
-            final String message = CharStreams.toString ( new InputStreamReader ( response.getEntity ().getContent (), UTF_8 ) ).trim ();
+            final String message = makeString ( response.getEntity () );
 
             this.listener.error ( "Failed to upload %s: %s %s = %s", fileName, response.getStatusLine ().getStatusCode (), response.getStatusLine ().getReasonPhrase (), message );
         }
 
         private void addUploadedArtifacts ( final String fileName, final HttpEntity resEntity ) throws IOException, UnsupportedEncodingException
         {
-            final String artId = CharStreams.toString ( new InputStreamReader ( resEntity.getContent (), UTF_8 ) ).trim ();
+            final String artId = makeString ( resEntity );
 
             this.listener.getLogger ().format ( "Uploaded %s as ", fileName );
 
@@ -408,4 +408,16 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
     }
 
+    private static String makeString ( final HttpEntity entity ) throws IOException
+    {
+        final InputStreamReader reader = new InputStreamReader ( entity.getContent (), UTF_8 );
+        try
+        {
+            return CharStreams.toString ( reader ).trim ();
+        }
+        finally
+        {
+            reader.close ();
+        }
+    }
 }
