@@ -14,8 +14,6 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.commons.httpclient.URIException;
-import org.apache.commons.httpclient.util.URIUtil;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
 
@@ -33,7 +31,7 @@ public class BuildData implements Action, Serializable, Cloneable, ProminentProj
 
     private final Map<String, String> artifacts;
 
-    public BuildData ( String serverUrl, String channel, Map<String, String> artifacts )
+    public BuildData ( final String serverUrl, final String channel, final Map<String, String> artifacts )
     {
         this.serverUrl = serverUrl;
         this.channel = channel;
@@ -55,32 +53,25 @@ public class BuildData implements Action, Serializable, Cloneable, ProminentProj
     @Override
     public String getUrlName ()
     {
-        try
-        {
-            return serverUrl + "/channel/" + URIUtil.encodePath ( channel ) + "/view";
-        }
-        catch ( URIException e )
-        {
-            throw new RuntimeException ( e );
-        }
+        return UrlMaker.make ( this.serverUrl, this.channel );
     }
 
     @Exported
     public String getChannel ()
     {
-        return channel;
+        return this.channel;
     }
 
     @Exported
     public String getServerUrl ()
     {
-        return serverUrl;
+        return this.serverUrl;
     }
-    
+
     @Exported
     public Map<String, String> getArtifacts ()
     {
-        return artifacts;
+        return this.artifacts;
     }
 
     public Object readResolve ()
@@ -91,7 +82,7 @@ public class BuildData implements Action, Serializable, Cloneable, ProminentProj
     @Override
     protected Object clone () throws CloneNotSupportedException
     {
-        return new BuildData ( this.serverUrl, channel, new HashMap<String, String> ( artifacts ) );
+        return new BuildData ( this.serverUrl, this.channel, new HashMap<String, String> ( this.artifacts ) );
     }
 
 }

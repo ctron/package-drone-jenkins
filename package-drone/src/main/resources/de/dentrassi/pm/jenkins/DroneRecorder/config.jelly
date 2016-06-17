@@ -46,6 +46,10 @@
 		<f:entry field="failsAsUpload" >
 			<f:checkbox title="${%failsAsUpload}" default="false"/>
 		</f:entry>
+		
+		<f:entry field="uploadV3" >
+            <f:checkbox title="${%uploadV3}" default="false"/>
+        </f:entry>
 	
 	</f:advanced>
         

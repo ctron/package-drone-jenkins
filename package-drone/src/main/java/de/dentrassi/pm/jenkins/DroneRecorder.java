@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2015, 2016 IBH SYSTEMS GmbH.
+ * Copyright (c) 2015, 2016 IBH SYSTEMS GmbH and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,38 +11,20 @@
  *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
-import static org.apache.commons.httpclient.util.URIUtil.encodeWithinPath;
-
 import java.io.Closeable;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.httpclient.URIException;
-import org.apache.commons.httpclient.util.URIUtil;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.tools.ant.types.FileSet;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
-
-import com.google.common.io.CharStreams;
 
 import hudson.EnvVars;
 import hudson.Extension;
@@ -60,14 +42,11 @@ import hudson.tasks.Publisher;
 import hudson.tasks.Recorder;
 import hudson.util.FormValidation;
 import jenkins.MasterToSlaveFileCallable;
-import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
 
 @SuppressWarnings ( "unchecked" )
 public class DroneRecorder extends Recorder implements SimpleBuildStep
 {
-    private static final Charset UTF_8 = Charset.forName ( "UTF-8" );
-
     private String serverUrl;
 
     private String channel;
@@ -91,6 +70,11 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
      * Fail (or not) the build if artifacts upload fails.
      */
     private boolean failsAsUpload;
+
+    /**
+     * Upload using V3 of the Upload API. Will perform a batch upload.
+     */
+    private boolean uploadV3 = false;
 
     @DataBoundConstructor
     public DroneRecorder ( final String serverUrl, final String channel, final String deployKey, final String artifacts )
@@ -135,6 +119,12 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     public void setFailsAsUpload ( final boolean failsAsUpload )
     {
         this.failsAsUpload = failsAsUpload;
+    }
+
+    @DataBoundSetter
+    public void setUploadV3 ( final boolean uploadV3 )
+    {
+        this.uploadV3 = uploadV3;
     }
 
     public String getServerUrl ()
@@ -235,38 +225,6 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         run.addAction ( new BuildData ( this.serverUrl, this.channel, uploader.artifacts ) );
     }
 
-    private URI makeUrl ( final String file, final Run<?, ?> run ) throws URIException, IOException
-    {
-        final URI fullUri;
-        try
-        {
-
-            final URIBuilder b = new URIBuilder ( this.serverUrl );
-
-            b.setUserInfo ( "deploy", this.deployKey );
-
-            b.setPath ( b.getPath () + String.format ( "/api/v2/upload/channel/%s/%s", URIUtil.encodeWithinPath ( this.channel ), file ) );
-
-            final String jenkinsUrl = Jenkins.getInstance ().getRootUrl ();
-            if ( jenkinsUrl != null )
-            {
-                final String url = jenkinsUrl + run.getUrl ();
-                b.addParameter ( "jenkins:buildUrl", url );
-            }
-            b.addParameter ( "jenkins:buildId", run.getId () );
-            b.addParameter ( "jenkins:buildNumber", String.valueOf ( run.getNumber () ) );
-            b.addParameter ( "jenkins:jobName", run.getParent ().getFullName () );
-
-            fullUri = b.build ();
-
-        }
-        catch ( final URISyntaxException e )
-        {
-            throw new IOException ( e );
-        }
-        return fullUri;
-    }
-
     private final class UploadFiles extends MasterToSlaveFileCallable<List<String>> implements Closeable
     {
         private static final long serialVersionUID = 1;
@@ -325,99 +283,45 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
                 this.run.setResult ( Result.FAILURE );
             }
 
-            for ( final String f : includedFiles )
+            final Uploader uploader;
+
+            if ( DroneRecorder.this.uploadV3 )
             {
-                final File file = new File ( basedir, f );
-                String filename;
-                if ( this.stripPath )
-                {
-                    filename = file.getName ();
-                }
-                else
-                {
-                    filename = f;
-                }
-                performUpload ( file, filename );
+                uploader = new UploaderV3 ( this.httpclient, this.run, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
+            }
+            else
+            {
+                uploader = new UploaderV2 ( this.httpclient, this.run, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
             }
 
-            return result;
-        }
-
-        public void performUpload ( final File file, final String fileName ) throws URIException, IOException
-        {
-            final URI uri = makeUrl ( fileName, this.run );
-
-            final HttpPut httppost = new HttpPut ( uri );
-
-            final InputStream stream = new FileInputStream ( file );
             try
             {
 
-                httppost.setEntity ( new InputStreamEntity ( stream, file.length () ) );
-
-                final HttpResponse response = this.httpclient.execute ( httppost );
-                final HttpEntity resEntity = response.getEntity ();
-
-                if ( resEntity != null )
+                for ( final String f : includedFiles )
                 {
-                    switch ( response.getStatusLine ().getStatusCode () )
+                    final File file = new File ( basedir, f );
+                    String filename;
+                    if ( this.stripPath )
                     {
-                        case 200:
-                            addUploadedArtifacts ( fileName, resEntity );
-                            break;
-                        default:
-                            addUploadFailure ( fileName, response );
-                            break;
+                        filename = file.getName ();
                     }
+                    else
+                    {
+                        filename = f;
+                    }
+                    uploader.upload ( file, filename );
                 }
+
+                this.failed = !uploader.complete ();
+
+                return result;
             }
             finally
             {
-                stream.close ();
+                uploader.close ();
             }
         }
 
-        private void addUploadFailure ( final String fileName, final HttpResponse response ) throws UnsupportedEncodingException, IOException
-        {
-            this.failed = true;
-
-            final String message = makeString ( response.getEntity () );
-
-            this.listener.error ( "Failed to upload %s: %s %s = %s", fileName, response.getStatusLine ().getStatusCode (), response.getStatusLine ().getReasonPhrase (), message );
-        }
-
-        private void addUploadedArtifacts ( final String fileName, final HttpEntity resEntity ) throws IOException, UnsupportedEncodingException
-        {
-            final String artId = makeString ( resEntity );
-
-            this.listener.getLogger ().format ( "Uploaded %s as ", fileName );
-
-            // FIXME: uploading can use channel alias, linking of artifacts not
-            // this.listener.hyperlink ( makeArtUrl ( artId ), artId );
-            this.listener.getLogger ().print ( artId ); // stick to plain id for now
-
-            this.listener.getLogger ().println ();
-
-            this.artifacts.put ( fileName, artId );
-        }
-
-        private String makeArtUrl ( final String artId ) throws URIException
-        {
-            return String.format ( "%s/channel/%s/artifacts/%s/view", DroneRecorder.this.serverUrl, encodeWithinPath ( DroneRecorder.this.channel ), encodeWithinPath ( artId ) );
-        }
-
     }
 
-    private static String makeString ( final HttpEntity entity ) throws IOException
-    {
-        final InputStreamReader reader = new InputStreamReader ( entity.getContent (), UTF_8 );
-        try
-        {
-            return CharStreams.toString ( reader ).trim ();
-        }
-        finally
-        {
-            reader.close ();
-        }
-    }
 }
