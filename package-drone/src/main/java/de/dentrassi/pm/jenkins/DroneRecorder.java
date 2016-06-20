@@ -203,6 +203,12 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         this.channel = Util.replaceMacro ( this.channel, env );
         this.deployKey = Util.replaceMacro ( this.deployKey, env );
 
+        if ( validateStart ( run, listener ) )
+        {
+            run.setResult ( Result.FAILURE );
+            return;
+        }
+
         listener.getLogger ().format ( "Package Drone Server URL: %s%n", this.serverUrl );
 
         final String artifacts = env.expand ( this.artifacts );
@@ -223,6 +229,29 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         }
 
         run.addAction ( new BuildData ( this.serverUrl, this.channel, uploader.artifacts ) );
+    }
+
+    private boolean validateStart ( final Run<?, ?> run, final TaskListener listener )
+    {
+        if ( this.serverUrl == null || this.serverUrl.isEmpty () )
+        {
+            listener.fatalError ( run.getDisplayName () + ": Server URL is empty" );
+            return false;
+        }
+
+        if ( this.channel == null || this.channel.isEmpty () )
+        {
+            listener.fatalError ( run.getDisplayName () + ": Channel ID/Name is empty" );
+            return false;
+        }
+
+        if ( this.deployKey == null || this.deployKey.isEmpty () )
+        {
+            listener.fatalError ( run.getDisplayName () + ": Deploy key is empty" );
+            return false;
+        }
+
+        return true;
     }
 
     private final class UploadFiles extends MasterToSlaveFileCallable<List<String>> implements Closeable
