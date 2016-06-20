@@ -107,7 +107,6 @@ public class UploaderV2 extends AbstractUploader
         final InputStream stream = new FileInputStream ( file );
         try
         {
-
             httppost.setEntity ( new InputStreamEntity ( stream, file.length () ) );
 
             final HttpResponse response = this.client.execute ( httppost );
