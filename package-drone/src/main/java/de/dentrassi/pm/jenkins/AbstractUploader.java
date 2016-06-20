@@ -13,7 +13,9 @@ package de.dentrassi.pm.jenkins;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
+import java.text.SimpleDateFormat;
 import java.util.Map;
+import java.util.TimeZone;
 
 import org.apache.http.HttpEntity;
 
@@ -25,6 +27,13 @@ import jenkins.model.Jenkins;
 public abstract class AbstractUploader implements Uploader
 {
     protected static final Charset UTF_8 = Charset.forName ( "UTF-8" );
+
+    private static final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
+
+    static
+    {
+        DATE_FORMATTER.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
+    }
 
     protected final Run<?, ?> run;
 
@@ -41,6 +50,8 @@ public abstract class AbstractUploader implements Uploader
             final String url = jenkinsUrl + this.run.getUrl ();
             properties.put ( "jenkins:buildUrl", url );
         }
+
+        properties.put ( "jenkins:timestamp", DATE_FORMATTER.format ( this.run.getTime () ) );
         properties.put ( "jenkins:buildId", this.run.getId () );
         properties.put ( "jenkins:buildNumber", String.valueOf ( this.run.getNumber () ) );
         properties.put ( "jenkins:jobName", this.run.getParent ().getFullName () );
