@@ -29,13 +29,20 @@
 		</license>
 	</licenses>
 
+  <distributionManagement>
+    <repository>
+        <id>maven.jenkins-ci.org</id>
+        <url>https://repo.jenkins-ci.org/releases</url>
+    </repository>
+  </distributionManagement>
+
 	<developers>
 		<developer>
 			<id>ctron</id>
 			<name>Jens Reimann</name>
 			<email>ctron@dentrassi.de</email>
-			<organization>IBH SYSTEMS GmbH</organization>
-			<organizationUrl>http://ibh-systems.com</organizationUrl>
+			<organization>Red Hat, Inc</organization>
+			<organizationUrl>http://redhat.com</organizationUrl>
 			<url>http://dentrassi.de</url>
 		</developer>
 		<developer>
