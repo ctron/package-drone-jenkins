@@ -13,7 +13,7 @@
 
 	<groupId>de.dentrassi.pm.jenkins</groupId>
 	<artifactId>package-drone</artifactId>
-	<version>0.3.3-SNAPSHOT</version>
+	<version>0.3.2-SNAPSHOT</version>
 	<packaging>hpi</packaging>
 
 	<name>Package Drone Deployer</name>
