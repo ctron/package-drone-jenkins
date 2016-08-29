@@ -203,7 +203,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         this.channel = Util.replaceMacro ( this.channel, env );
         this.deployKey = Util.replaceMacro ( this.deployKey, env );
 
-        if ( validateStart ( run, listener ) )
+        if ( ! validateStart ( run, listener ) )
         {
             run.setResult ( Result.FAILURE );
             return;
