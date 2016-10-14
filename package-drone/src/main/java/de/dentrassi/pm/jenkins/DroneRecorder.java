@@ -8,6 +8,7 @@
  * Contributors:
  *     IBH SYSTEMS GmbH - initial API and implementation
  *     Nikolas Falco - author of some PRs
+ *     Red Hat Inc - fix issue with uploadV3 not being updated
  *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
@@ -170,6 +171,11 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     public boolean isFailsAsUpload ()
     {
         return this.failsAsUpload;
+    }
+
+    public boolean isUploadV3 ()
+    {
+        return this.uploadV3;
     }
 
     @Extension
