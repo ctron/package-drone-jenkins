@@ -70,12 +70,16 @@ public class UploaderV2 extends AbstractUploader
 
             b.setPath ( b.getPath () + String.format ( "/api/v2/upload/channel/%s/%s", URIUtil.encodeWithinPath ( this.channelId ), file ) );
 
-            final String jenkinsUrl = Jenkins.getInstance ().getRootUrl ();
-            if ( jenkinsUrl != null )
+            final Jenkins instance = Jenkins.getInstance ();
+            if (instance != null ) 
             {
-                final String url = jenkinsUrl + this.run.getUrl ();
-                b.addParameter ( "jenkins:buildUrl", url );
-            }
+	            final String jenkinsUrl = instance.getRootUrl ();
+	            if ( jenkinsUrl != null )
+	            {
+	                final String url = jenkinsUrl + this.run.getUrl ();
+	                b.addParameter ( "jenkins:buildUrl", url );
+	            }
+			}
             b.addParameter ( "jenkins:buildId", this.run.getId () );
             b.addParameter ( "jenkins:buildNumber", String.valueOf ( this.run.getNumber () ) );
             b.addParameter ( "jenkins:jobName", this.run.getParent ().getFullName () );
