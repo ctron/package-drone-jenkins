@@ -44,12 +44,16 @@ public abstract class AbstractUploader implements Uploader
 
     protected void fillProperties ( final Map<String, String> properties )
     {
-        final String jenkinsUrl = Jenkins.getInstance ().getRootUrl ();
-        if ( jenkinsUrl != null )
-        {
-            final String url = jenkinsUrl + this.run.getUrl ();
-            properties.put ( "jenkins:buildUrl", url );
-        }
+    	final Jenkins instance = Jenkins.getInstance();
+    	if (instance != null)
+    	{
+	        final String jenkinsUrl = instance.getRootUrl ();
+	        if ( jenkinsUrl != null )
+	        {
+	            final String url = jenkinsUrl + this.run.getUrl ();
+	            properties.put ( "jenkins:buildUrl", url );
+	        }
+	   	}
 
         properties.put ( "jenkins:timestamp", DATE_FORMATTER.format ( this.run.getTime () ) );
         properties.put ( "jenkins:buildId", this.run.getId () );
