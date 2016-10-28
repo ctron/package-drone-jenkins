@@ -57,6 +57,10 @@
 		</developer>
 	</developers>
 
+	<properties>
+		<jenkins-test-harness.version>2.17</jenkins-test-harness.version>
+	</properties>
+	
 	<scm>
 		<url>https://github.com/ctron/package-drone-jenkins</url>
 		<connection>scm:git:git://github.com/ctron/package-drone-jenkins.git</connection>
