@@ -21,7 +21,7 @@ import hudson.model.Action;
 import hudson.model.ProminentProjectAction;
 
 @ExportedBean ( defaultVisibility = 999 )
-public class BuildData implements Action, Serializable, Cloneable, ProminentProjectAction
+public class BuildData implements Action, Serializable, ProminentProjectAction
 {
     private static final long serialVersionUID = 1L;
 
