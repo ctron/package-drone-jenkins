@@ -342,7 +342,10 @@ public class UploaderV3 extends AbstractUploader
     public void close () throws IOException
     {
         closeTransfer ();
-        this.tempFile.delete ();
+        if ( ! this.tempFile.delete () )
+        {
+            listener.getLogger ().println ( "It should never be logged... but got the FindBug error fixed" );
+        }
     }
 
     private void closeTransfer () throws IOException
