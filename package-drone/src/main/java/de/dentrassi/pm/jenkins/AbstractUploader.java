@@ -28,13 +28,6 @@ public abstract class AbstractUploader implements Uploader
 {
     protected static final Charset UTF_8 = Charset.forName ( "UTF-8" );
 
-    private static final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
-
-    static
-    {
-        DATE_FORMATTER.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
-    }
-
     protected final Run<?, ?> run;
 
     public AbstractUploader ( final Run<?, ?> run )
@@ -44,12 +37,19 @@ public abstract class AbstractUploader implements Uploader
 
     protected void fillProperties ( final Map<String, String> properties )
     {
-        final String jenkinsUrl = Jenkins.getInstance ().getRootUrl ();
-        if ( jenkinsUrl != null )
-        {
-            final String url = jenkinsUrl + this.run.getUrl ();
-            properties.put ( "jenkins:buildUrl", url );
-        }
+    	final Jenkins instance = Jenkins.getInstance();
+    	if (instance != null)
+    	{
+	        final String jenkinsUrl = instance.getRootUrl ();
+	        if ( jenkinsUrl != null )
+	        {
+	            final String url = jenkinsUrl + this.run.getUrl ();
+	            properties.put ( "jenkins:buildUrl", url );
+	        }
+	   	}
+
+        final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
+        DATE_FORMATTER.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
 
         properties.put ( "jenkins:timestamp", DATE_FORMATTER.format ( this.run.getTime () ) );
         properties.put ( "jenkins:buildId", this.run.getId () );
