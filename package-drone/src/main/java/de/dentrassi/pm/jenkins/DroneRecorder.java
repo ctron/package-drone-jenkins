@@ -15,6 +15,7 @@ package de.dentrassi.pm.jenkins;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -46,15 +47,17 @@ import jenkins.MasterToSlaveFileCallable;
 import jenkins.tasks.SimpleBuildStep;
 
 @SuppressWarnings ( "unchecked" )
-public class DroneRecorder extends Recorder implements SimpleBuildStep
+public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializable
 {
+    private static final long serialVersionUID = 3116603636658192616L;
+
     private String serverUrl;
 
     private String channel;
 
     private String deployKey;
 
-    private final String artifacts;
+    private String artifacts;
 
     private String excludes = "";
 
@@ -262,15 +265,16 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
     private final class UploadFiles extends MasterToSlaveFileCallable<List<String>> implements Closeable
     {
-        private static final long serialVersionUID = 1;
+        private static final long serialVersionUID = 4105845253120795102L;
 
         private final String includes, excludes;
 
         private final boolean defaultExcludes;
 
-        private final Run<?, ?> run;
+        private transient final Run<?, ?> run;
+        private final RunData runData;
 
-        private final DefaultHttpClient httpclient;
+        private transient DefaultHttpClient httpclient;
 
         private final TaskListener listener;
 
@@ -285,23 +289,25 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
             return this.failed;
         }
 
-        UploadFiles ( final String includes, final String excludes, final boolean defaultExcludes, final boolean stripPath, final Run<?, ?> run, final TaskListener listener )
+        UploadFiles(final String includes, final String excludes, final boolean defaultExcludes, final boolean stripPath, final Run<?, ?> run, final TaskListener listener)
         {
             this.includes = includes;
             this.excludes = excludes;
             this.defaultExcludes = defaultExcludes;
             this.stripPath = stripPath;
 
-            this.run = run;
-            this.listener = listener;
+            this.run = run; // for setting the result to FAILURE
+            this.runData = new RunData(run);
 
-            this.httpclient = new DefaultHttpClient ();
+            this.listener = listener;
         }
 
         @Override
         public void close ()
         {
-            this.httpclient.getConnectionManager ().shutdown ();
+            if (httpclient != null){
+                this.httpclient.getConnectionManager ().shutdown ();
+            }
         }
 
         @Override
@@ -320,13 +326,11 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
             final Uploader uploader;
 
-            if ( DroneRecorder.this.uploadV3 )
-            {
-                uploader = new UploaderV3 ( this.httpclient, this.run, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
-            }
-            else
-            {
-                uploader = new UploaderV2 ( this.httpclient, this.run, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
+            httpclient =  new DefaultHttpClient ();
+            if (DroneRecorder.this.uploadV3) {
+                uploader = new UploaderV3(this.httpclient, this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel);
+            } else {
+                uploader = new UploaderV2(this.httpclient, this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel);
             }
 
             try

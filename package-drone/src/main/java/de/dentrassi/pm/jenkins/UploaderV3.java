@@ -43,7 +43,6 @@ import org.eclipse.packagedrone.repo.api.upload.UploadResult;
 import com.google.gson.GsonBuilder;
 
 import hudson.console.ExpandableDetailsNote;
-import hudson.model.Run;
 import hudson.model.TaskListener;
 
 public class UploaderV3 extends AbstractUploader
@@ -64,9 +63,9 @@ public class UploaderV3 extends AbstractUploader
 
     private TransferArchiveWriter transfer;
 
-    public UploaderV3 ( final HttpClient client, final Run<?, ?> run, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId ) throws IOException
+    public UploaderV3(final HttpClient client, final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId) throws IOException
     {
-        super ( run );
+        super(runData);
         this.client = client;
         this.listener = listener;
         this.serverUrl = serverUrl;

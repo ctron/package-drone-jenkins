@@ -21,9 +21,6 @@ import org.apache.http.HttpEntity;
 
 import com.google.common.io.CharStreams;
 
-import hudson.model.Run;
-import jenkins.model.Jenkins;
-
 public abstract class AbstractUploader implements Uploader
 {
     protected static final Charset UTF_8 = Charset.forName ( "UTF-8" );
@@ -35,26 +32,20 @@ public abstract class AbstractUploader implements Uploader
         DATE_FORMATTER.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
     }
 
-    protected final Run<?, ?> run;
+    protected final RunData runData;
 
-    public AbstractUploader ( final Run<?, ?> run )
+    public AbstractUploader(final RunData runData)
     {
-        this.run = run;
+        this.runData = runData;
     }
 
-    protected void fillProperties ( final Map<String, String> properties )
+    protected void fillProperties(final Map<String, String> properties)
     {
-        final String jenkinsUrl = Jenkins.getInstance ().getRootUrl ();
-        if ( jenkinsUrl != null )
-        {
-            final String url = jenkinsUrl + this.run.getUrl ();
-            properties.put ( "jenkins:buildUrl", url );
-        }
-
-        properties.put ( "jenkins:timestamp", DATE_FORMATTER.format ( this.run.getTime () ) );
-        properties.put ( "jenkins:buildId", this.run.getId () );
-        properties.put ( "jenkins:buildNumber", String.valueOf ( this.run.getNumber () ) );
-        properties.put ( "jenkins:jobName", this.run.getParent ().getFullName () );
+        properties.put("jenkins:buildUrl",  this.runData.getUrl());
+        properties.put("jenkins:timestamp", DATE_FORMATTER.format(this.runData.getTime()));
+        properties.put("jenkins:buildId", this.runData.getId());
+        properties.put("jenkins:buildNumber", String.valueOf(this.runData.getNumber()));
+        properties.put("jenkins:jobName", this.runData.getFullName());
     }
 
     protected static String makeString ( final HttpEntity entity ) throws IOException

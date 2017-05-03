@@ -28,9 +28,7 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.InputStreamEntity;
 
-import hudson.model.Run;
 import hudson.model.TaskListener;
-import jenkins.model.Jenkins;
 
 public class UploaderV2 extends AbstractUploader
 {
@@ -46,9 +44,9 @@ public class UploaderV2 extends AbstractUploader
 
     private boolean failed;
 
-    public UploaderV2 ( final HttpClient client, final Run<?, ?> run, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId )
+    public UploaderV2 ( final HttpClient client, final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId )
     {
-        super ( run );
+        super ( runData );
         this.client = client;
         this.listener = listener;
         this.serverUrl = serverUrl;
@@ -70,15 +68,10 @@ public class UploaderV2 extends AbstractUploader
 
             b.setPath ( b.getPath () + String.format ( "/api/v2/upload/channel/%s/%s", URIUtil.encodeWithinPath ( this.channelId ), file ) );
 
-            final String jenkinsUrl = Jenkins.getInstance ().getRootUrl ();
-            if ( jenkinsUrl != null )
-            {
-                final String url = jenkinsUrl + this.run.getUrl ();
-                b.addParameter ( "jenkins:buildUrl", url );
-            }
-            b.addParameter ( "jenkins:buildId", this.run.getId () );
-            b.addParameter ( "jenkins:buildNumber", String.valueOf ( this.run.getNumber () ) );
-            b.addParameter ( "jenkins:jobName", this.run.getParent ().getFullName () );
+            b.addParameter ( "jenkins:buildUrl", this.runData.getUrl());
+            b.addParameter("jenkins:buildId", this.runData.getId());
+            b.addParameter("jenkins:buildNumber", String.valueOf(this.runData.getNumber()));
+            b.addParameter("jenkins:jobName", this.runData.getFullName());
 
             final Map<String, String> properties = new HashMap<String, String> ();
             fillProperties ( properties );
