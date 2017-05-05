@@ -17,7 +17,7 @@
 
 	<groupId>de.dentrassi.pm.jenkins</groupId>
 	<artifactId>package-drone</artifactId>
-	<version>0.3.5</version>
+	<version>0.3.6-SNAPSHOT</version>
 	<packaging>hpi</packaging>
 
 	<name>Package Drone Deployer</name>
@@ -60,7 +60,7 @@
 		<url>https://github.com/ctron/package-drone-jenkins</url>
 		<connection>scm:git:git://github.com/ctron/package-drone-jenkins.git</connection>
 		<developerConnection>scm:git:git@github.com:ctron/package-drone-jenkins.git</developerConnection>
-		<tag>package-drone-0.3.5</tag>
+		<tag>HEAD</tag>
 	</scm>
 
 	<repositories>
