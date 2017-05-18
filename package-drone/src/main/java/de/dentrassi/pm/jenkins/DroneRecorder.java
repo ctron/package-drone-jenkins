@@ -46,7 +46,6 @@ import hudson.util.FormValidation;
 import jenkins.MasterToSlaveFileCallable;
 import jenkins.tasks.SimpleBuildStep;
 
-@SuppressWarnings ( "unchecked" )
 public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializable
 {
     private static final long serialVersionUID = 3116603636658192616L;
@@ -231,7 +230,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
         {
             uploader.close ();
 
-            if ( uploader.isFailed () && this.failsAsUpload )
+            if ( ( uploader.isFailed () && this.failsAsUpload ) || ( uploader.isEmptyArchive() && this.allowEmptyArchive ) )
             {
                 run.setResult ( Result.FAILURE );
             }
@@ -271,7 +270,6 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
 
         private final boolean defaultExcludes;
 
-        private transient final Run<?, ?> run;
         private final RunData runData;
 
         private transient DefaultHttpClient httpclient;
@@ -284,9 +282,16 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
 
         private boolean failed;
 
+        private boolean emptyArchive;
+
         public boolean isFailed ()
         {
             return this.failed;
+        }
+
+        public boolean isEmptyArchive ()
+        {
+            return this.emptyArchive;
         }
 
         UploadFiles(final String includes, final String excludes, final boolean defaultExcludes, final boolean stripPath, final Run<?, ?> run, final TaskListener listener)
@@ -296,7 +301,6 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
             this.defaultExcludes = defaultExcludes;
             this.stripPath = stripPath;
 
-            this.run = run; // for setting the result to FAILURE
             this.runData = new RunData(run);
 
             this.listener = listener;
@@ -319,9 +323,9 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
             fileSet.setDefaultexcludes ( this.defaultExcludes );
 
             final String[] includedFiles = fileSet.getDirectoryScanner ().getIncludedFiles ();
-            if ( includedFiles.length == 0 && !isAllowEmptyArchive () )
+            if ( includedFiles.length == 0 )
             {
-                this.run.setResult ( Result.FAILURE );
+                this.emptyArchive = true;
             }
 
             final Uploader uploader;
