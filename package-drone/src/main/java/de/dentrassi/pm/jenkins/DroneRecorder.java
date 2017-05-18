@@ -17,8 +17,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.http.impl.client.DefaultHttpClient;
@@ -262,7 +260,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
         return true;
     }
 
-    private final class UploadFiles extends MasterToSlaveFileCallable<List<String>> implements Closeable
+    private final class UploadFiles extends MasterToSlaveFileCallable<Void> implements Closeable
     {
         private static final long serialVersionUID = 4105845253120795102L;
 
@@ -300,9 +298,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
             this.excludes = excludes;
             this.defaultExcludes = defaultExcludes;
             this.stripPath = stripPath;
-
             this.runData = new RunData(run);
-
             this.listener = listener;
         }
 
@@ -315,10 +311,8 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
         }
 
         @Override
-        public List<String> invoke ( final File basedir, final VirtualChannel channel ) throws IOException, InterruptedException
+        public Void invoke ( final File basedir, final VirtualChannel channel ) throws IOException, InterruptedException
         {
-            final List<String> result = new LinkedList<String> ();
-
             final FileSet fileSet = Util.createFileSet ( basedir, this.includes, this.excludes );
             fileSet.setDefaultexcludes ( this.defaultExcludes );
 
@@ -326,43 +320,50 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
             if ( includedFiles.length == 0 )
             {
                 this.emptyArchive = true;
+                // nothing to upload
             }
-
-            final Uploader uploader;
-
-            httpclient =  new DefaultHttpClient ();
-            if (DroneRecorder.this.uploadV3) {
-                uploader = new UploaderV3(this.httpclient, this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel);
-            } else {
-                uploader = new UploaderV2(this.httpclient, this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel);
-            }
-
-            try
+            else
             {
+                final Uploader uploader;
 
-                for ( final String f : includedFiles )
+                httpclient = new DefaultHttpClient ();
+                if ( DroneRecorder.this.uploadV3 )
                 {
-                    final File file = new File ( basedir, f );
-                    String filename;
-                    if ( this.stripPath )
-                    {
-                        filename = file.getName ();
-                    }
-                    else
-                    {
-                        filename = f;
-                    }
-                    uploader.upload ( file, filename );
+                    uploader = new UploaderV3 ( this.httpclient, this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
+                }
+                else
+                {
+                    uploader = new UploaderV2 ( this.httpclient, this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
                 }
 
-                this.failed = !uploader.complete ();
+                try
+                {
 
-                return result;
+                    for ( final String f : includedFiles )
+                    {
+                        final File file = new File ( basedir, f );
+                        String filename;
+                        if ( this.stripPath )
+                        {
+                            filename = file.getName ();
+                        }
+                        else
+                        {
+                            filename = f;
+                        }
+                        uploader.upload ( file, filename );
+//                        this.artifacts.put ( artifacId, f );
+                    }
+
+                }
+                finally
+                {
+                    this.failed = !uploader.complete ();
+                    uploader.close ();
+                }
             }
-            finally
-            {
-                uploader.close ();
-            }
+
+            return null;
         }
 
     }
