@@ -27,6 +27,7 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.InputStreamEntity;
+import org.apache.http.impl.client.DefaultHttpClient;
 
 import hudson.model.TaskListener;
 
@@ -44,10 +45,10 @@ public class UploaderV2 extends AbstractUploader
 
     private boolean failed;
 
-    public UploaderV2 ( final HttpClient client, final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId )
+    public UploaderV2 ( final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId )
     {
         super ( runData );
-        this.client = client;
+        this.client = new DefaultHttpClient ();
         this.listener = listener;
         this.serverUrl = serverUrl;
         this.deployKey = deployKey;
@@ -155,6 +156,10 @@ public class UploaderV2 extends AbstractUploader
     @Override
     public void close ()
     {
-        // nothing to do
+        if ( this.client != null )
+        {
+            this.client.getConnectionManager ().shutdown ();
+        }
     }
+
 }
