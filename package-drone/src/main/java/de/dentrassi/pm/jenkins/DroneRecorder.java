@@ -12,14 +12,12 @@
  *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
-import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.tools.ant.types.FileSet;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -226,8 +224,6 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
         }
         finally
         {
-            uploader.close ();
-
             if ( ( uploader.isFailed () && this.failsAsUpload ) || ( uploader.isEmptyArchive() && this.allowEmptyArchive ) )
             {
                 run.setResult ( Result.FAILURE );
@@ -260,7 +256,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
         return true;
     }
 
-    private final class UploadFiles extends MasterToSlaveFileCallable<Void> implements Closeable
+    private final class UploadFiles extends MasterToSlaveFileCallable<Void>
     {
         private static final long serialVersionUID = 4105845253120795102L;
 
@@ -269,8 +265,6 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
         private final boolean defaultExcludes;
 
         private final RunData runData;
-
-        private transient DefaultHttpClient httpclient;
 
         private final TaskListener listener;
 
@@ -303,14 +297,6 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
         }
 
         @Override
-        public void close ()
-        {
-            if (httpclient != null){
-                this.httpclient.getConnectionManager ().shutdown ();
-            }
-        }
-
-        @Override
         public Void invoke ( final File basedir, final VirtualChannel channel ) throws IOException, InterruptedException
         {
             final FileSet fileSet = Util.createFileSet ( basedir, this.includes, this.excludes );
@@ -326,14 +312,13 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
             {
                 final Uploader uploader;
 
-                httpclient = new DefaultHttpClient ();
                 if ( DroneRecorder.this.uploadV3 )
                 {
-                    uploader = new UploaderV3 ( this.httpclient, this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
+                    uploader = new UploaderV3 ( this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
                 }
                 else
                 {
-                    uploader = new UploaderV2 ( this.httpclient, this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
+                    uploader = new UploaderV2 ( this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
                 }
 
                 try

@@ -34,6 +34,7 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.InputStreamEntity;
+import org.apache.http.impl.client.DefaultHttpClient;
 import org.eclipse.packagedrone.repo.api.transfer.TransferArchiveWriter;
 import org.eclipse.packagedrone.repo.api.upload.ArtifactInformation;
 import org.eclipse.packagedrone.repo.api.upload.RejectedArtifact;
@@ -63,10 +64,10 @@ public class UploaderV3 extends AbstractUploader
 
     private TransferArchiveWriter transfer;
 
-    public UploaderV3(final HttpClient client, final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId) throws IOException
+    public UploaderV3(final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId) throws IOException
     {
         super(runData);
-        this.client = client;
+        this.client = new DefaultHttpClient ();
         this.listener = listener;
         this.serverUrl = serverUrl;
         this.deployKey = deployKey;
