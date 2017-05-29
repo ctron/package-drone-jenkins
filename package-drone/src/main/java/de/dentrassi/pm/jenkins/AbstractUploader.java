@@ -25,27 +25,24 @@ public abstract class AbstractUploader implements Uploader
 {
     protected static final Charset UTF_8 = Charset.forName ( "UTF-8" );
 
-    private static final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
-
-    static
-    {
-        DATE_FORMATTER.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
-    }
-
     protected final RunData runData;
 
-    public AbstractUploader(final RunData runData)
+    private final SimpleDateFormat sdf;
+
+    public AbstractUploader ( final RunData runData )
     {
         this.runData = runData;
+        this.sdf = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
+        this.sdf.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
     }
 
-    protected void fillProperties(final Map<String, String> properties)
+    protected void fillProperties ( final Map<String, String> properties )
     {
-        properties.put("jenkins:buildUrl",  this.runData.getUrl());
-        properties.put("jenkins:timestamp", DATE_FORMATTER.format(this.runData.getTime()));
-        properties.put("jenkins:buildId", this.runData.getId());
-        properties.put("jenkins:buildNumber", String.valueOf(this.runData.getNumber()));
-        properties.put("jenkins:jobName", this.runData.getFullName());
+        properties.put ( "jenkins:buildUrl", this.runData.getUrl () );
+        properties.put ( "jenkins:timestamp", this.sdf.format ( this.runData.getTime () ) );
+        properties.put ( "jenkins:buildId", this.runData.getId () );
+        properties.put ( "jenkins:buildNumber", String.valueOf ( this.runData.getNumber () ) );
+        properties.put ( "jenkins:jobName", this.runData.getFullName () );
     }
 
     protected static String makeString ( final HttpEntity entity ) throws IOException

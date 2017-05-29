@@ -83,7 +83,10 @@ public class UploaderV3 extends AbstractUploader
         catch ( final IOException e )
         {
             // delete in case of early abort
-            this.tempFile.delete ();
+            if ( ! this.tempFile.delete () )
+            {
+                this.tempFile.deleteOnExit();
+            }
             throw e;
         }
     }
@@ -338,7 +341,10 @@ public class UploaderV3 extends AbstractUploader
     public void close () throws IOException
     {
         closeTransfer ();
-        this.tempFile.delete ();
+        if ( ! this.tempFile.delete () )
+        {
+            this.tempFile.deleteOnExit();
+        }
     }
 
     private void closeTransfer () throws IOException

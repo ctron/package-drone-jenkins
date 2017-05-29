@@ -15,16 +15,20 @@ public class RunData implements Serializable {
     private int number;
     private String fullName;
 
-    RunData(Run<?, ?> run) {
-        this.time = run.getTime();
-        this.id = run.getId();
-        this.number = run.getNumber();
-        this.fullName = run.getParent().getFullName();
-        final String jenkinsUrl = Jenkins.getInstance().getRootUrl();
-        if (jenkinsUrl != null) {
-            this.url = jenkinsUrl + run.getUrl();
-        } else {
-            this.url = run.getUrl();
+    RunData ( Run<?, ?> run )
+    {
+        this.time = run.getTime ();
+        this.id = run.getId ();
+        this.number = run.getNumber ();
+        this.fullName = run.getParent ().getFullName ();
+        final Jenkins jenkins = Jenkins.getInstance ();
+        if ( jenkins != null && jenkins.getRootUrl () != null )
+        {
+            this.url = jenkins.getRootUrl () + run.getUrl ();
+        }
+        else
+        {
+            this.url = run.getUrl ();
         }
     }
 
@@ -33,7 +37,7 @@ public class RunData implements Serializable {
     }
 
     public Date getTime() {
-        return time;
+        return new Date(time.getTime ());
     }
 
     public String getId() {

@@ -80,9 +80,16 @@ public class BuildData implements Action, Serializable, Cloneable, ProminentProj
     }
 
     @Override
-    protected Object clone () throws CloneNotSupportedException
+    public Object clone () throws CloneNotSupportedException
     {
-        return new BuildData ( this.serverUrl, this.channel, new HashMap<String, String> ( this.artifacts ) );
+        if ( this.getClass() != BuildData.class )
+        {
+            return super.clone();
+        }
+        else
+        {
+            return new BuildData ( this.serverUrl, this.channel, new HashMap<String, String> ( this.artifacts ) );
+        }
     }
 
 }
