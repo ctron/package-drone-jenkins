@@ -1,3 +1,13 @@
+<!--
+Copyright (c) 2015 IBH SYSTEMS GmbH.
+All rights reserved. This program and the accompanying materials
+are made available under the terms of the Eclipse Public License v1.0
+which accompanies this distribution, and is available at
+http://www.eclipse.org/legal/epl-v10.html
+
+Contributors:
+    IBH SYSTEMS GmbH - initial API and implementation
+-->
 <?jelly escape-by-default='true'?>
 <j:jelly
 	xmlns:j="jelly:core"
@@ -9,46 +19,46 @@
 	xmlns:c="/lib/credentials"
 	>
 
-  	<f:entry title="${%Server URL}" field="serverUrl" description="The main URL to the Package Drone instance">
+  	<f:entry title="${%serverUrl.title}" field="serverUrl" description="${%serverUrl.description}">
 		<f:textbox />
 	</f:entry>
   
-	<f:entry title="${%Deploy Key}" field="deployKey">
+	<f:entry title="${%deployKey.title}" field="deployKey">
 		<f:textbox />
 	</f:entry>
 	
-	<f:entry title="${%Channel}" field="channel" description="This may either be the channel ID or name">
+	<f:entry title="${%channel.title}" field="channel" description="${%channel.description}">
 		<f:textbox />
 	</f:entry>
   
-  	<f:entry title="${%Files to archive}" field="artifacts">
+  	<f:entry title="${%artifacts.title}" field="artifacts">
 		<f:textbox />
 	</f:entry>
 
 	<f:advanced>
 
-	    <f:entry title="${%Excludes}" field="excludes">
+	    <f:entry title="${%excludes.title}" field="excludes">
 			<f:textbox />
 	    </f:entry>
 	  
-		<f:entry field="defaultExcludes" >
-			<f:checkbox title="${%defaultExcludes}" default="true"/>
+		<f:entry title="${%defaultExcludes.title}" field="defaultExcludes" >
+			<f:checkbox default="true"/>
 		</f:entry>
 		
-		<f:entry field="stripPath" >
-			<f:checkbox title="${%stripPath}" default="true"/>
+		<f:entry title="${%stripPath.title}" field="stripPath" >
+			<f:checkbox default="true"/>
 		</f:entry>
 
-		<f:entry field="allowEmptyArchive" >
-			<f:checkbox title="${%allowEmptyArchive}" default="false"/>
+		<f:entry title="${%allowEmptyArchive.title}" field="allowEmptyArchive" >
+			<f:checkbox default="false"/>
 		</f:entry>
 
-		<f:entry field="failsAsUpload" >
-			<f:checkbox title="${%failsAsUpload}" default="false"/>
+		<f:entry title="${%failsAsUpload.title}" field="failsAsUpload" >
+			<f:checkbox default="false"/>
 		</f:entry>
 		
-		<f:entry field="uploadV3" >
-            <f:checkbox title="${%uploadV3}" default="false"/>
+		<f:entry title="${%uploadV3.title}" field="uploadV3" >
+            <f:checkbox default="false"/>
         </f:entry>
 	
 	</f:advanced>
