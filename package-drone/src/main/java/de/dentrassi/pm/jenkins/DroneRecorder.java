@@ -86,7 +86,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
     {
         this.serverUrl = Util.fixEmptyAndTrim ( serverUrl );
         this.channel = Util.fixEmptyAndTrim ( channel );
-        this.artifacts = artifacts;
+        this.artifacts = Util.fixEmptyAndTrim ( artifacts );
         this.deployKey = Util.fixEmptyAndTrim ( deployKey );
     }
 
@@ -347,13 +347,26 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
         }
         finally
         {
-            if ( ( uploader.isFailed () && this.failsAsUpload ) || ( uploader.isEmptyArchive () && this.allowEmptyArchive ) )
+            if ( ( uploader.isFailed () && this.failsAsUpload ) )
             {
                 run.setResult ( Result.FAILURE );
+            }
+            else if ( uploader.isEmptyArchive () )
+            {
+                logWarning ( listener, Messages.DroneRecorder_noMatchFound ( artifacts ) );
+                if ( !this.allowEmptyArchive )
+                {
+                    run.setResult ( Result.FAILURE );
+                }
             }
         }
 
         run.addAction ( new BuildData ( this.serverUrl, this.channel, uploader.artifacts ) );
+    }
+
+    private void logWarning ( TaskListener listener, String message )
+    {
+        listener.getLogger ().println ( String.format ( "WARN: %s", message ) );
     }
 
     /*
@@ -361,6 +374,12 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
      */
     private boolean validateStart ( final Run<?, ?> run, final TaskListener listener )
     {
+        if ( this.artifacts == null )
+        {
+            listener.error ( Messages.DroneRecorder_noIncludes () );
+            return false;
+        }
+
         if ( this.serverUrl == null || this.serverUrl.isEmpty () )
         {
             listener.fatalError ( Messages.DroneRecorder_emptyServerUrl ( run.getDisplayName () ) );
@@ -466,7 +485,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
                             filename = f;
                         }
                         uploader.upload ( file, filename );
-//                        this.artifacts.put ( artifacId, f );
+//                        TODO this.artifacts.put ( artifacId, f );
                     }
 
                 }
