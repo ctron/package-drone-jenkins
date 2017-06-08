@@ -43,7 +43,7 @@ public class UploaderV2 extends AbstractUploader
 
     private final String channelId;
 
-    private boolean failed;
+    private final Map<String, String> uploadedArtifacts = new HashMap<> ();
 
     public UploaderV2 ( final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId )
     {
@@ -126,23 +126,24 @@ public class UploaderV2 extends AbstractUploader
     }
 
     @Override
-    public boolean complete ()
+    public Map<String, String> complete ()
     {
-        return !this.failed;
+        return uploadedArtifacts;
     }
 
     private void addUploadFailure ( final String fileName, final HttpResponse response ) throws IOException
     {
-        this.failed = true;
-
         final String message = makeString ( response.getEntity () );
+        String errorMessage = String.format ( "Failed to upload %s: %s %s = %s", fileName, response.getStatusLine ().getStatusCode (), response.getStatusLine ().getReasonPhrase (), message );
 
-        this.listener.error ( "Failed to upload %s: %s %s = %s", fileName, response.getStatusLine ().getStatusCode (), response.getStatusLine ().getReasonPhrase (), message );
+        throw new IOException ( errorMessage );
     }
 
     private void addUploadedArtifacts ( final String fileName, final HttpEntity resEntity ) throws IOException
     {
         final String artId = makeString ( resEntity );
+
+        uploadedArtifacts.put ( artId, fileName );
 
         this.listener.getLogger ().format ( "Uploaded %s as ", fileName );
 
@@ -161,5 +162,4 @@ public class UploaderV2 extends AbstractUploader
             this.client.getConnectionManager ().shutdown ();
         }
     }
-
 }

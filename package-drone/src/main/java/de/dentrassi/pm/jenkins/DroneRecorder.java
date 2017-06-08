@@ -17,8 +17,6 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.regex.Pattern;
 
 import javax.annotation.CheckForNull;
@@ -341,32 +339,14 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
         final String artifacts = env.expand ( this.artifacts );
 
         final UploadFiles uploader = new UploadFiles ( artifacts, this.excludes, this.defaultExcludes, this.stripPath, run, listener );
-        try
+
+        UploaderResult result = workspace.act ( uploader );
+        if ( ( result.hasFailed () && failsAsUpload ) || ( result.isEmptyUpload && !this.allowEmptyArchive ) )
         {
-            workspace.act ( uploader );
-        }
-        finally
-        {
-            if ( ( uploader.isFailed () && this.failsAsUpload ) )
-            {
-                run.setResult ( Result.FAILURE );
-            }
-            else if ( uploader.isEmptyArchive () )
-            {
-                logWarning ( listener, Messages.DroneRecorder_noMatchFound ( artifacts ) );
-                if ( !this.allowEmptyArchive )
-                {
-                    run.setResult ( Result.FAILURE );
-                }
-            }
+            run.setResult ( Result.FAILURE );
         }
 
-        run.addAction ( new BuildData ( this.serverUrl, this.channel, uploader.artifacts ) );
-    }
-
-    private void logWarning ( TaskListener listener, String message )
-    {
-        listener.getLogger ().println ( String.format ( "WARN: %s", message ) );
+        run.addAction ( new BuildData ( this.serverUrl, this.channel, result.getUploadedArtifacts () ) );
     }
 
     /*
@@ -374,12 +354,6 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
      */
     private boolean validateStart ( final Run<?, ?> run, final TaskListener listener )
     {
-        if ( this.artifacts == null )
-        {
-            listener.error ( Messages.DroneRecorder_noIncludes () );
-            return false;
-        }
-
         if ( this.serverUrl == null || this.serverUrl.isEmpty () )
         {
             listener.fatalError ( Messages.DroneRecorder_emptyServerUrl ( run.getDisplayName () ) );
@@ -404,7 +378,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
     /*
      * Callable used to perform the upload of archives in a master or slave node.
      */
-    private final class UploadFiles extends MasterToSlaveFileCallable<Void>
+    private final class UploadFiles extends MasterToSlaveFileCallable<UploaderResult>
     {
         private static final long serialVersionUID = 4105845253120795102L;
 
@@ -416,23 +390,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
 
         private final TaskListener listener;
 
-        private final Map<String, String> artifacts = new HashMap<> ();
-
         private final boolean stripPath;
-
-        private boolean failed;
-
-        private boolean emptyArchive;
-
-        public boolean isFailed ()
-        {
-            return this.failed;
-        }
-
-        public boolean isEmptyArchive ()
-        {
-            return this.emptyArchive;
-        }
 
         UploadFiles ( final String includes, final String excludes, final boolean defaultExcludes, final boolean stripPath, final Run<?, ?> run, final TaskListener listener )
         {
@@ -445,33 +403,23 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
         }
 
         @Override
-        public Void invoke ( final File basedir, final VirtualChannel channel ) throws IOException, InterruptedException
+        public UploaderResult invoke ( final File basedir, final VirtualChannel channel )
         {
+            UploaderResult uploadResult = new UploaderResult ();
             final FileSet fileSet = Util.createFileSet ( basedir, this.includes, this.excludes );
             fileSet.setDefaultexcludes ( this.defaultExcludes );
 
             final String[] includedFiles = fileSet.getDirectoryScanner ().getIncludedFiles ();
             if ( includedFiles.length == 0 )
             {
-                this.emptyArchive = true;
-                // nothing to upload
+                uploadResult.setEmptyUpload ( true );
+                this.listener.error ( Messages.DroneRecorder_noMatchFound ( this.includes ) ); // nothing to upload
+                return uploadResult;
             }
             else
             {
-                final Uploader uploader;
-
-                if ( DroneRecorder.this.uploadV3 )
+                try ( Uploader uploader = createUploader () )
                 {
-                    uploader = new UploaderV3 ( this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
-                }
-                else
-                {
-                    uploader = new UploaderV2 ( this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
-                }
-
-                try
-                {
-
                     for ( final String f : includedFiles )
                     {
                         final File file = new File ( basedir, f );
@@ -485,19 +433,40 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
                             filename = f;
                         }
                         uploader.upload ( file, filename );
-//                        TODO this.artifacts.put ( artifacId, f );
                     }
-
+                    uploadResult.addArtifacts ( uploader.complete () );
                 }
-                finally
+                catch ( IOException e )
                 {
-                    this.failed = !uploader.complete ();
-                    uploader.close ();
+                    uploadResult.setHasFailed ( true );
+                    String message = e.getMessage ();
+                    if ( message == null )
+                    {
+                        e.printStackTrace ( this.listener.error ( Messages.DroneRecorder_failedToUpload () ) );
+                    }
+                    else
+                    {
+                        this.listener.error ( e.getMessage () );
+                    }
                 }
             }
 
-            return null;
+            return uploadResult;
+        }
+
+        private Uploader createUploader () throws IOException
+        {
+            if ( DroneRecorder.this.uploadV3 )
+            {
+                return new UploaderV3 ( this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
+            }
+            else
+            {
+                return new UploaderV2 ( this.runData, this.listener, DroneRecorder.this.serverUrl, DroneRecorder.this.deployKey, DroneRecorder.this.channel );
+            }
         }
 
     }
+    
+   
 }

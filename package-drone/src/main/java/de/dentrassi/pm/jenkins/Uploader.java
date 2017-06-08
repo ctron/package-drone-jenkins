@@ -13,12 +13,13 @@ package de.dentrassi.pm.jenkins;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.util.Map;
 
 public interface Uploader extends Closeable
 {
     public void upload ( File file, String filename ) throws IOException;
 
-    public boolean complete ();
+    public Map<String, String> complete () throws IOException;
 
     @Override
     public void close () throws IOException;

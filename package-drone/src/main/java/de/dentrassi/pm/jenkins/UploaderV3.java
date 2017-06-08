@@ -17,6 +17,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URISyntaxException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -57,8 +58,6 @@ public class UploaderV3 extends AbstractUploader
     private final String deployKey;
 
     private final String channelId;
-
-    private boolean failed;
 
     private final File tempFile;
 
@@ -104,7 +103,7 @@ public class UploaderV3 extends AbstractUploader
         }
         catch ( final IOException e )
         {
-            this.failed = true;
+            throw new IOException ( "Failed to write to the upload archive", e );
         }
         finally
         {
@@ -113,13 +112,8 @@ public class UploaderV3 extends AbstractUploader
     }
 
     @Override
-    public boolean complete ()
+    public Map<String, String> complete () throws IOException
     {
-        if ( this.failed )
-        {
-            return false;
-        }
-
         try
         {
             closeTransfer ();
@@ -148,61 +142,52 @@ public class UploaderV3 extends AbstractUploader
                     switch ( response.getStatusLine ().getStatusCode () )
                     {
                         case 200:
-                            processUploadResult ( makeString ( resEntity ) );
-                            return true;
+                            return processUploadResult ( makeString ( resEntity ) );
                         case 404:
-                            this.listener.error ( "Failed to find upload endpoint V3. This could mean that you configured a wrong server URL or that the server does not support the Upload V3. You will need a version 0.14+ of Eclipse Package Drone. It could also mean that you did use wrong credentials." );
-                            return false;
+                            throw new IOException ( "Failed to find upload endpoint V3. This could mean that you configured a wrong server URL or that the server does not support the Upload V3. You will need a version 0.14+ of Eclipse Package Drone. It could also mean that you did use wrong credentials." );
                         default:
-                            if ( !handleError ( response ) )
+                            String errorMessage = "Failed to upload: " + response.getStatusLine ();
+                            String httpResponseErrorMessage = getErrorMessage ( response );
+                            if ( httpResponseErrorMessage != null )
                             {
-                                addErrorMessage ( "Failed to upload: " + response.getStatusLine () );
+                                errorMessage += " " + httpResponseErrorMessage;
                             }
-                            return false;
+                            throw new IOException ( errorMessage );
                     }
                 }
 
                 addErrorMessage ( "Did not receive a result" );
-
-                return false;
             }
             finally
             {
                 stream.close ();
             }
         }
-        catch ( final Exception e )
+        catch ( final URISyntaxException e )
         {
-            e.printStackTrace ( this.listener.error ( "Failed to perform archive upload" ) );
-            return false;
+            throw new IOException ( "Upload URL syntax error: " + e.getMessage (), e );
         }
+        return new HashMap<> ();
     }
 
-    private boolean handleError ( final HttpResponse response ) throws IOException
+    private String getErrorMessage ( final HttpResponse response ) throws IOException
     {
         final HttpEntity entity = response.getEntity ();
         if ( entity.getContentType () == null || !entity.getContentType ().getValue ().equals ( "application/json" ) )
         {
-            return false;
+            return null;
         }
 
         final UploadError error = new GsonBuilder ().create ().fromJson ( makeString ( entity ), UploadError.class );
         if ( error == null )
         {
-            return false;
+            return null;
         }
-
-        if ( error.getMessage () == null )
-        {
-            return false;
-        }
-
-        this.listener.error ( error.getMessage () );
-
-        return true;
+        
+        return error.getMessage ();
     }
 
-    private void processUploadResult ( final String string )
+    private Map<String, String> processUploadResult ( final String string )
     {
         try
         {
@@ -211,14 +196,16 @@ public class UploaderV3 extends AbstractUploader
             this.listener.getLogger ().print ( "Uploaded to chanel: " );
             this.listener.hyperlink ( UrlMaker.make ( this.serverUrl, result.getChannelId () ), result.getChannelId () );
             this.listener.getLogger ().println ();
-
             this.listener.annotate ( makeArtifactsList ( result ) );
             this.listener.getLogger ().println ();
+            
+            return createArtifactsMap ( result );
         }
         catch ( final Exception e )
         {
             e.printStackTrace ( this.listener.error ( "Failed to parse upload result" ) );
         }
+        return new HashMap<> ();
     }
 
     private static class Entry
@@ -266,6 +253,16 @@ public class UploaderV3 extends AbstractUploader
         {
             return this.artifactInformation;
         }
+    }
+
+    private Map<String, String> createArtifactsMap ( final UploadResult result )
+    {
+        Map<String, String> artifacts = new HashMap<> ();
+        for ( final ArtifactInformation ai : result.getCreatedArtifacts () )
+        {
+            artifacts.put ( ai.getId (), ai.getName () );
+        }
+        return artifacts;
     }
 
     private ExpandableDetailsNote makeArtifactsList ( final UploadResult result )
