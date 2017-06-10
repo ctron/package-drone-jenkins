@@ -1,5 +1,7 @@
 # package-drone-jenkins
 
+[![Build Status](https://travis-ci.org/ctron/package-drone-jenkins.svg?branch=master)](https://travis-ci.org/ctron/package-drone-jenkins) [![Coverage Status](https://coveralls.io/repos/github/ctron/package-drone-jenkins/badge.svg?branch=master)](https://coveralls.io/github/ctron/package-drone-jenkins?branch=master)
+
 A Package Drone Plugin for Jenkins
 
 [Eclipse Package Drone](https://eclipse.org/package-drone) is a
