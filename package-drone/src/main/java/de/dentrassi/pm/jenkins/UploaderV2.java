@@ -28,6 +28,7 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.eclipse.packagedrone.repo.MetaKey;
 
 import hudson.model.TaskListener;
 
@@ -69,17 +70,12 @@ public class UploaderV2 extends AbstractUploader
 
             b.setPath ( b.getPath () + String.format ( "/api/v2/upload/channel/%s/%s", URIUtil.encodeWithinPath ( this.channelId ), file ) );
 
-            b.addParameter ( "jenkins:buildUrl", this.runData.getUrl());
-            b.addParameter("jenkins:buildId", this.runData.getId());
-            b.addParameter("jenkins:buildNumber", String.valueOf(this.runData.getNumber()));
-            b.addParameter("jenkins:jobName", this.runData.getFullName());
-
-            final Map<String, String> properties = new HashMap<String, String> ();
+            final Map<MetaKey, String> properties = new HashMap<> ();
             fillProperties ( properties );
 
-            for ( final Map.Entry<String, String> entry : properties.entrySet () )
+            for ( final Map.Entry<MetaKey, String> entry : properties.entrySet () )
             {
-                b.addParameter ( entry.getKey (), entry.getValue () );
+                b.addParameter ( entry.getKey ().toString (), entry.getValue () );
             }
 
             fullUri = b.build ();

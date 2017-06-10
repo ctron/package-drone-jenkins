@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.TimeZone;
 
 import org.apache.http.HttpEntity;
+import org.eclipse.packagedrone.repo.MetaKey;
 
 import com.google.common.io.CharStreams;
 
@@ -36,13 +37,13 @@ public abstract class AbstractUploader implements Uploader
         this.sdf.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
     }
 
-    protected void fillProperties ( final Map<String, String> properties )
+    protected void fillProperties ( final Map<MetaKey, String> properties )
     {
-        properties.put ( "jenkins:buildUrl", this.runData.getUrl () );
-        properties.put ( "jenkins:timestamp", this.sdf.format ( this.runData.getTime () ) );
-        properties.put ( "jenkins:buildId", this.runData.getId () );
-        properties.put ( "jenkins:buildNumber", String.valueOf ( this.runData.getNumber () ) );
-        properties.put ( "jenkins:jobName", this.runData.getFullName () );
+        properties.put ( new MetaKey ( "jenkins", "buildUrl" ), this.runData.getUrl () );
+        properties.put ( new MetaKey ( "jenkins", "timestamp" ), this.sdf.format ( this.runData.getTime () ) );
+        properties.put ( new MetaKey ( "jenkins", "buildId" ), this.runData.getId () );
+        properties.put ( new MetaKey ( "jenkins", "buildNumber" ), String.valueOf ( this.runData.getNumber () ) );
+        properties.put ( new MetaKey ( "jenkins", "jobName" ), this.runData.getFullName () );
     }
 
     protected static String makeString ( final HttpEntity entity ) throws IOException

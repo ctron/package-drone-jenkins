@@ -10,13 +10,13 @@
  *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,6 +27,7 @@ import java.util.Map;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.httpclient.util.URIUtil;
+import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
@@ -35,6 +36,8 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.eclipse.packagedrone.repo.MetaKey;
+import org.eclipse.packagedrone.repo.api.transfer.ContentProvider;
 import org.eclipse.packagedrone.repo.api.transfer.TransferArchiveWriter;
 import org.eclipse.packagedrone.repo.api.upload.ArtifactInformation;
 import org.eclipse.packagedrone.repo.api.upload.RejectedArtifact;
@@ -98,9 +101,15 @@ public class UploaderV3 extends AbstractUploader
         final InputStream in = new FileInputStream ( file );
         try
         {
-            final Map<String, String> properties = new HashMap<String, String> ();
+            final Map<MetaKey, String> properties = new HashMap<> ();
             fillProperties ( properties );
-            this.transfer.createEntry ( filename, properties, new BufferedInputStream ( in ) );
+            this.transfer.createEntry ( filename, properties, new ContentProvider() {
+                @Override
+                public void provide ( OutputStream stream ) throws IOException
+                {
+                    IOUtils.copy ( in, stream );
+                }
+            });
         }
         catch ( final IOException e )
         {
@@ -270,7 +279,7 @@ public class UploaderV3 extends AbstractUploader
 
     private ExpandableDetailsNote makeArtifactsList ( final UploadResult result )
     {
-        final List<Entry> entries = new ArrayList<Entry> ( result.getCreatedArtifacts ().size () + result.getRejectedArtifacts ().size () );
+        final List<Entry> entries = new ArrayList<> ( result.getCreatedArtifacts ().size () + result.getRejectedArtifacts ().size () );
 
         for ( final ArtifactInformation ai : result.getCreatedArtifacts () )
         {
