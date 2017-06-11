@@ -43,8 +43,6 @@ public class UploaderV2 extends AbstractUploader
 
     private final String channelId;
 
-    private final Map<String, String> uploadedArtifacts = new HashMap<> ();
-
     public UploaderV2 ( final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId )
     {
         super ( runData );
@@ -74,7 +72,7 @@ public class UploaderV2 extends AbstractUploader
             b.addParameter("jenkins:buildNumber", String.valueOf(this.runData.getNumber()));
             b.addParameter("jenkins:jobName", this.runData.getFullName());
 
-            final Map<String, String> properties = new HashMap<String, String> ();
+            final Map<String, String> properties = new HashMap<> ();
             fillProperties ( properties );
 
             for ( final Map.Entry<String, String> entry : properties.entrySet () )
@@ -93,7 +91,7 @@ public class UploaderV2 extends AbstractUploader
     }
 
     @Override
-    public void upload ( final File file, final String filename ) throws IOException
+    public void addArtifact ( final File file, final String filename ) throws IOException
     {
         final URI uri = makeUrl ( filename );
         final HttpPut httppost = new HttpPut ( uri );
@@ -125,18 +123,11 @@ public class UploaderV2 extends AbstractUploader
         }
     }
 
-    @Override
-    public Map<String, String> complete ()
-    {
-        return uploadedArtifacts;
-    }
-
     private void addUploadFailure ( final String fileName, final HttpResponse response ) throws IOException
     {
         final String message = makeString ( response.getEntity () );
-        String errorMessage = String.format ( "Failed to upload %s: %s %s = %s", fileName, response.getStatusLine ().getStatusCode (), response.getStatusLine ().getReasonPhrase (), message );
 
-        throw new IOException ( errorMessage );
+        throw new IOException ( Messages.UploaderV2_failedToUpload ( fileName, response.getStatusLine ().getStatusCode (), response.getStatusLine ().getReasonPhrase (), message ) );
     }
 
     private void addUploadedArtifacts ( final String fileName, final HttpEntity resEntity ) throws IOException
@@ -161,5 +152,11 @@ public class UploaderV2 extends AbstractUploader
         {
             this.client.getConnectionManager ().shutdown ();
         }
+    }
+
+    @Override
+    public void performUpload () throws IOException
+    {
+        //nothing to do
     }
 }

@@ -92,7 +92,7 @@ public class UploaderV3 extends AbstractUploader
     }
 
     @Override
-    public void upload ( final File file, final String filename ) throws IOException
+    public void addArtifact ( final File file, final String filename ) throws IOException
     {
         final InputStream in = new FileInputStream ( file );
         try
@@ -112,7 +112,7 @@ public class UploaderV3 extends AbstractUploader
     }
 
     @Override
-    public Map<String, String> complete () throws IOException
+    public void performUpload () throws IOException
     {
         try
         {
@@ -142,15 +142,16 @@ public class UploaderV3 extends AbstractUploader
                     switch ( response.getStatusLine ().getStatusCode () )
                     {
                         case 200:
-                            return processUploadResult ( makeString ( resEntity ) );
+                            processUploadResult ( makeString ( resEntity ) );
+                            return;
                         case 404:
-                            throw new IOException ( "Failed to find upload endpoint V3. This could mean that you configured a wrong server URL or that the server does not support the Upload V3. You will need a version 0.14+ of Eclipse Package Drone. It could also mean that you did use wrong credentials." );
+                            throw new IOException ( Messages.UploaderV3_failedToFindEndpoint () );
                         default:
                             String errorMessage = "Failed to upload: " + response.getStatusLine ();
                             String httpResponseErrorMessage = getErrorMessage ( response );
                             if ( httpResponseErrorMessage != null )
                             {
-                                errorMessage += " " + httpResponseErrorMessage;
+                                errorMessage += "\n" + httpResponseErrorMessage;
                             }
                             throw new IOException ( errorMessage );
                     }
@@ -167,7 +168,6 @@ public class UploaderV3 extends AbstractUploader
         {
             throw new IOException ( "Upload URL syntax error: " + e.getMessage (), e );
         }
-        return new HashMap<> ();
     }
 
     private String getErrorMessage ( final HttpResponse response ) throws IOException
@@ -187,7 +187,7 @@ public class UploaderV3 extends AbstractUploader
         return error.getMessage ();
     }
 
-    private Map<String, String> processUploadResult ( final String string )
+    private void processUploadResult ( final String string )
     {
         try
         {
@@ -199,13 +199,12 @@ public class UploaderV3 extends AbstractUploader
             this.listener.annotate ( makeArtifactsList ( result ) );
             this.listener.getLogger ().println ();
             
-            return createArtifactsMap ( result );
+            createArtifactsMap ( result );
         }
         catch ( final Exception e )
         {
             e.printStackTrace ( this.listener.error ( "Failed to parse upload result" ) );
         }
-        return new HashMap<> ();
     }
 
     private static class Entry
@@ -255,14 +254,12 @@ public class UploaderV3 extends AbstractUploader
         }
     }
 
-    private Map<String, String> createArtifactsMap ( final UploadResult result )
+    private void createArtifactsMap ( final UploadResult result )
     {
-        Map<String, String> artifacts = new HashMap<> ();
         for ( final ArtifactInformation ai : result.getCreatedArtifacts () )
         {
-            artifacts.put ( ai.getId (), ai.getName () );
+            uploadedArtifacts.put ( ai.getId (), ai.getName () );
         }
-        return artifacts;
     }
 
     private ExpandableDetailsNote makeArtifactsList ( final UploadResult result )

@@ -341,19 +341,42 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
         final UploadFiles uploader = new UploadFiles ( artifacts, this.excludes, this.defaultExcludes, this.stripPath, run, listener );
 
         UploaderResult result = workspace.act ( uploader );
-        if ( ( result.hasFailed () && failsAsUpload ) || ( result.isEmptyUpload && !this.allowEmptyArchive ) )
+        if ( ( result.isFailed () && failsAsUpload ) )
         {
             run.setResult ( Result.FAILURE );
+        }
+        else if ( result.isEmptyUpload () )
+        {
+            if ( this.allowEmptyArchive )
+            {
+                logWarning ( listener, Messages.DroneRecorder_noMatchFound ( artifacts ) );
+            }
+            else
+            {
+                listener.error ( Messages.DroneRecorder_noMatchFound ( artifacts ) ); // nothing to upload
+                run.setResult ( Result.FAILURE );
+            }
         }
 
         run.addAction ( new BuildData ( this.serverUrl, this.channel, result.getUploadedArtifacts () ) );
     }
 
+    private void logWarning ( TaskListener listener, String message )
+    {
+        listener.getLogger ().println ( String.format ( "WARN: %s", message ) );
+    }
+    
     /*
      * Validates the input parameters
      */
     private boolean validateStart ( final Run<?, ?> run, final TaskListener listener )
     {
+        if ( this.artifacts == null )
+        {
+            listener.error ( Messages.DroneRecorder_noIncludes () );
+            return false;
+        }
+
         if ( this.serverUrl == null || this.serverUrl.isEmpty () )
         {
             listener.fatalError ( Messages.DroneRecorder_emptyServerUrl ( run.getDisplayName () ) );
@@ -413,32 +436,38 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep, Serializ
             if ( includedFiles.length == 0 )
             {
                 uploadResult.setEmptyUpload ( true );
-                this.listener.error ( Messages.DroneRecorder_noMatchFound ( this.includes ) ); // nothing to upload
                 return uploadResult;
             }
             else
             {
                 try ( Uploader uploader = createUploader () )
                 {
-                    for ( final String f : includedFiles )
+                    try
                     {
-                        final File file = new File ( basedir, f );
-                        String filename;
-                        if ( this.stripPath )
+                        for ( final String f : includedFiles )
                         {
-                            filename = file.getName ();
+                            final File file = new File ( basedir, f );
+                            String filename;
+                            if ( this.stripPath )
+                            {
+                                filename = file.getName ();
+                            }
+                            else
+                            {
+                                filename = f;
+                            }
+                            uploader.addArtifact ( file, filename );
                         }
-                        else
-                        {
-                            filename = f;
-                        }
-                        uploader.upload ( file, filename );
+                        uploader.performUpload ();
                     }
-                    uploadResult.addArtifacts ( uploader.complete () );
+                    finally
+                    {
+                        uploadResult.addUploadedArtifacts ( uploader.getUploadedArtifacts () );
+                    }
                 }
                 catch ( IOException e )
                 {
-                    uploadResult.setHasFailed ( true );
+                    uploadResult.setFailed ( true );
                     String message = e.getMessage ();
                     if ( message == null )
                     {

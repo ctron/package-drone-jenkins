@@ -1,45 +1,88 @@
+/*******************************************************************************
+ * Copyright (c) 2017 Christian Mathis.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *     Christian Mathis - author of some PRs
+ *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Results of the Upload operation
+ * 
+ * @author Christian Mathis
+ */
 public class UploaderResult implements Serializable
 {
     private static final long serialVersionUID = -3089286880912224513L;
 
-    private Map<String, String> artifacts;
+    /*
+     * Map containing the id and filename of the successfully uploaded artifacts
+     */
+    private Map<String, String> uploadedArtifacts = new HashMap<> ();
 
-    boolean isEmptyUpload = false;
+    private boolean isEmptyUpload = false;
 
-    boolean failed = false;
+    private boolean isFailed = false;
 
+    /**
+     * @return map containing id and filename of the successfully uploaded artifacts
+     */
     public Map<String, String> getUploadedArtifacts ()
     {
-        return artifacts;
+        return Collections.unmodifiableMap ( uploadedArtifacts );
     }
 
-    public void addArtifacts ( Map<String, String> artifacts )
+    /**
+     * Add entries to successfully uploaded artifacts
+     * 
+     * @param artifacts
+     *            map containing id and filename of artifacts
+     */
+    public void addUploadedArtifacts ( Map<String, String> artifacts )
     {
-        this.artifacts = artifacts;
+        this.uploadedArtifacts.putAll ( artifacts );
     }
 
-    public boolean hasFailed ()
+    /**
+     * @return true if the upload has failed
+     */
+    public boolean isFailed ()
     {
-        return failed;
+        return isFailed;
     }
 
-    public void setHasFailed ( boolean hasFailed )
+    /**
+     * @param failed
+     *            set to true if the upload has failed
+     */
+    public void setFailed ( boolean failed )
     {
-        this.failed = hasFailed;
+        this.isFailed = failed;
     }
 
+    /**
+     * @return true if nothing was found to upload
+     */
     public boolean isEmptyUpload ()
     {
         return isEmptyUpload;
     }
 
-    public void setEmptyUpload ( boolean isEmpty )
+    /**
+     * @param isEmptyUpload
+     *            set to true if nothing to upload was found
+     */
+    public void setEmptyUpload ( boolean isEmptyUpload )
     {
-        this.isEmptyUpload = isEmpty;
+        this.isEmptyUpload = isEmptyUpload;
     }
 }

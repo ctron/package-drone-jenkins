@@ -17,9 +17,28 @@ import java.util.Map;
 
 public interface Uploader extends Closeable
 {
-    public void upload ( File file, String filename ) throws IOException;
+    /**
+     * Add a single file for upload
+     *
+     * @param file
+     * @param filename
+     * @throws IOException
+     *             if adding the artifact fails
+     */
+    public void addArtifact ( File file, String filename ) throws IOException;
 
-    public Map<String, String> complete () throws IOException;
+    /**
+     * Upload the artifacts
+     *
+     * @throws IOException
+     *             if performing the upload fails
+     */
+    public void performUpload () throws IOException;
+
+    /**
+     * @return a map of successfully artifact ids and filenames
+     */
+    public Map<String, String> getUploadedArtifacts ();
 
     @Override
     public void close () throws IOException;
