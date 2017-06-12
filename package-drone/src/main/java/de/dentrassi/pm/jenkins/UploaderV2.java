@@ -18,6 +18,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.commons.httpclient.URIException;
 import org.apache.commons.httpclient.util.URIUtil;
@@ -42,6 +44,9 @@ public class UploaderV2 extends AbstractUploader
     private final String deployKey;
 
     private final String channelId;
+
+    //Map containing files and names to be uploaded in perfomUpload
+    private final Map<File, String> filesToUpload = new HashMap<> ();
 
     public UploaderV2 ( final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId )
     {
@@ -91,7 +96,22 @@ public class UploaderV2 extends AbstractUploader
     }
 
     @Override
-    public void addArtifact ( final File file, final String filename ) throws IOException
+    public void addArtifact ( File file, String filename ) throws IOException
+    {
+        filesToUpload.put ( file, filename );
+    }
+
+    @Override
+    public void performUpload () throws IOException
+    {
+        Set<Entry<File, String>> entries = filesToUpload.entrySet ();
+        for ( Entry<File, String> entry : entries )
+        {
+            uploadArtifact ( entry.getKey (), entry.getValue () );
+        }
+    }
+
+    private void uploadArtifact ( final File file, final String filename ) throws IOException
     {
         final URI uri = makeUrl ( filename );
         final HttpPut httppost = new HttpPut ( uri );
@@ -152,11 +172,5 @@ public class UploaderV2 extends AbstractUploader
         {
             this.client.getConnectionManager ().shutdown ();
         }
-    }
-
-    @Override
-    public void performUpload () throws IOException
-    {
-        //nothing to do
     }
 }
