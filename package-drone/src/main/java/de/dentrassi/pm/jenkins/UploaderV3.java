@@ -205,7 +205,7 @@ public class UploaderV3 extends AbstractUploader
             final UploadResult result = new GsonBuilder ().create ().fromJson ( string, UploadResult.class );
 
             this.listener.getLogger ().print ( "Uploaded to chanel: " );
-            this.listener.hyperlink ( UrlMaker.make ( this.serverData.getServerURL (), this.serverData.getChannel () ), this.serverData.getChannel () );
+            this.listener.hyperlink ( URLMaker.make ( this.serverData.getServerURL (), this.serverData.getChannel () ), this.serverData.getChannel () );
             this.listener.getLogger ().println ();
             this.listener.annotate ( makeArtifactsList ( result ) );
             this.listener.getLogger ().println ();
@@ -308,7 +308,7 @@ public class UploaderV3 extends AbstractUploader
             sb.append ( "<td>" ).append ( entry.getName () ).append ( "</td>" );
             if ( !entry.isRejected () )
             {
-                sb.append ( "<td>" ).append ( "<a target=\"_blank\" href=\"" ).append ( UrlMaker.make ( this.serverData.getServerURL (), result.getChannelId (), entry.getId () ) ).append ( "\">" ).append ( entry.getId () ).append ( "</a>" ).append ( "</td>" );
+                sb.append ( "<td>" ).append ( "<a target=\"_blank\" href=\"" ).append ( URLMaker.make ( this.serverData.getServerURL (), result.getChannelId (), entry.getId () ) ).append ( "\">" ).append ( entry.getId () ).append ( "</a>" ).append ( "</td>" );
                 sb.append ( "<td>" ).append ( entry.getArtifactInformation ().getSize () ).append ( "</td>" );
 
                 sb.append ( "<td>" );

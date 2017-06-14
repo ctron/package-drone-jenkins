@@ -13,6 +13,7 @@ package de.dentrassi.pm.jenkins;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
@@ -53,7 +54,7 @@ public class BuildData implements Action, Serializable, Cloneable, ProminentProj
     @Override
     public String getUrlName ()
     {
-        return UrlMaker.make ( this.serverUrl, this.channel );
+        return URLMaker.make ( this.serverUrl, this.channel );
     }
 
     @Exported
@@ -71,7 +72,12 @@ public class BuildData implements Action, Serializable, Cloneable, ProminentProj
     @Exported
     public Map<String, String> getArtifacts ()
     {
-        return this.artifacts;
+        Map<String, String> artifactsURL = new HashMap<> ( this.artifacts.size () );
+        for ( Entry<String, String> artifact : this.artifacts.entrySet () )
+        {
+            artifactsURL.put ( artifact.getValue (), URLMaker.make ( this.serverUrl, this.channel, artifact.getKey () ) );
+        }
+        return artifactsURL;
     }
 
     public Object readResolve ()
@@ -88,7 +94,7 @@ public class BuildData implements Action, Serializable, Cloneable, ProminentProj
         }
         else
         {
-            return new BuildData ( this.serverUrl, this.channel, new HashMap<String, String> ( this.artifacts ) );
+            return new BuildData ( this.serverUrl, this.channel, new HashMap<> ( this.artifacts ) );
         }
     }
 
