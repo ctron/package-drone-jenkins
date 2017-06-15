@@ -329,7 +329,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         this.channel = Util.replaceMacro ( this.channel, env );
         this.deployKey = Util.replaceMacro ( this.deployKey, env );
 
-        if ( !validateStart ( run, listener ) )
+        if ( !validateStart ( listener ) )
         {
             run.setResult ( Result.FAILURE );
             return;
@@ -381,7 +381,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     /*
      * Validates the input parameters
      */
-    private boolean validateStart ( final Run<?, ?> run, final TaskListener listener )
+    private boolean validateStart ( final TaskListener listener )
     {
         if ( this.artifacts == null )
         {
@@ -391,19 +391,19 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
         if ( this.serverUrl == null || this.serverUrl.isEmpty () )
         {
-            listener.fatalError ( Messages.DroneRecorder_emptyServerUrl ( run.getDisplayName () ) );
+            listener.fatalError ( Messages.DroneRecorder_emptyServerUrl () );
             return false;
         }
 
         if ( this.channel == null || this.channel.isEmpty () )
         {
-            listener.fatalError ( Messages.DroneRecorder_emptyChannel ( run.getDisplayName () ) );
+            listener.fatalError ( Messages.DroneRecorder_emptyChannel () );
             return false;
         }
 
         if ( this.deployKey == null || this.deployKey.isEmpty () )
         {
-            listener.fatalError ( Messages.DroneRecorder_emptyDeployKey ( run.getDisplayName () ) );
+            listener.fatalError ( Messages.DroneRecorder_emptyDeployKey () );
             return false;
         }
 

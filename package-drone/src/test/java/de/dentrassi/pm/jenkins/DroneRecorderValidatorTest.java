@@ -10,9 +10,12 @@
  *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
-import static org.powermock.api.mockito.PowerMockito.*;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.startsWith;
+import static org.junit.Assert.assertThat;
+import static org.powermock.api.mockito.PowerMockito.doReturn;
+import static org.powermock.api.mockito.PowerMockito.mock;
+import static org.powermock.api.mockito.PowerMockito.when;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,7 +40,7 @@ public class DroneRecorderValidatorTest
 {
 
     @Test
-    public void test_artifacts_validation_when_on_pipeline_sysntax () throws Exception
+    public void test_artifacts_validation_when_on_pipeline_syntax () throws Exception
     {
         DescriptorImpl descriptor = new DescriptorImpl ();
 
