@@ -35,8 +35,8 @@ public class UploaderResult implements Serializable
      * Returns a unmodifiable map containing the successfully uploaded
      * artifacts.
      *
-     * @return map containing id and filename of the successfully uploaded
-     *         artifacts
+     * @return map containing identifier and filename of the successfully
+     *         uploaded artifacts.
      */
     public Map<String, String> getUploadedArtifacts ()
     {
@@ -44,10 +44,10 @@ public class UploaderResult implements Serializable
     }
 
     /**
-     * Add entries to successfully uploaded artifacts.
+     * Adds all the given entries to successfully uploaded artifacts.
      *
      * @param artifacts
-     *            map containing id and filename of artifacts
+     *            a map containing identifier and filename of artifacts.
      */
     public void addUploadedArtifacts ( Map<String, String> artifacts )
     {
@@ -55,10 +55,13 @@ public class UploaderResult implements Serializable
     }
 
     /**
-     * Returns false if the upload was not completed successfully. Depending on
-     * the protocol version some files may have been uploaded regardless.
+     * Returns if the upload was not completed successfully.
+     * <p>
+     * Depending on the protocol version some files may have been uploaded
+     * regardless.
      *
-     * @return true if the upload has failed
+     * @return {@literal true} if the upload has failed, {@literal false}
+     *         otherwise.
      */
     public boolean isFailed ()
     {
@@ -66,10 +69,10 @@ public class UploaderResult implements Serializable
     }
 
     /**
-     * Set this to false if the upload was not completed successfully.
+     * Marks this upload as failed.
      *
      * @param failed
-     *            set to true if the upload has failed
+     *            the status of this upload.
      */
     public void setFailed ( boolean failed )
     {
@@ -77,9 +80,10 @@ public class UploaderResult implements Serializable
     }
 
     /**
-     * Returns true if no files matching the artifact filter where found.
+     * Returns if no files matching the artifact filter where found.
      *
-     * @return true if nothing was found to upload
+     * @return {@literal true} if nothing was found to upload, {@literal false}
+     *         otherwise.
      */
     public boolean isEmptyUpload ()
     {
@@ -87,13 +91,15 @@ public class UploaderResult implements Serializable
     }
 
     /**
-     * Set to true if no matching artifacts where found to upload.
+     * Marks this upload that no matching artifacts where found.
      *
      * @param isEmptyUpload
-     *            set to true if nothing to upload was found
+     *            {@literal true} if nothing to upload was found,
+     *            {@literal false} otherwise.
      */
     public void setEmptyUpload ( boolean isEmptyUpload )
     {
         this.isEmptyUpload = isEmptyUpload;
     }
+
 }

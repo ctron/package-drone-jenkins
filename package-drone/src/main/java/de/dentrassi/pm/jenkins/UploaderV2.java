@@ -11,9 +11,7 @@
 package de.dentrassi.pm.jenkins;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -28,7 +26,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.entity.InputStreamEntity;
+import org.apache.http.entity.FileEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 
 import hudson.model.TaskListener;
@@ -45,9 +43,6 @@ public class UploaderV2 extends AbstractUploader
 
     private final String channelId;
 
-    //Map containing files and names to be uploaded in perfomUpload
-    private final Map<File, String> filesToUpload = new HashMap<> ();
-
     public UploaderV2 ( final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId )
     {
         super ( runData );
@@ -60,7 +55,7 @@ public class UploaderV2 extends AbstractUploader
         listener.getLogger ().println ( "Uploading using Package Drone V2 uploader" );
     }
 
-    private URI makeUrl ( final String file ) throws URIException, IOException
+    private URI makeUrl ( final String file ) throws IOException
     {
         final URI fullUri;
         try
@@ -71,11 +66,6 @@ public class UploaderV2 extends AbstractUploader
             b.setUserInfo ( "deploy", this.deployKey );
 
             b.setPath ( b.getPath () + String.format ( "/api/v2/upload/channel/%s/%s", URIUtil.encodeWithinPath ( this.channelId ), file ) );
-
-            b.addParameter ( "jenkins:buildUrl", this.runData.getUrl());
-            b.addParameter("jenkins:buildId", this.runData.getId());
-            b.addParameter("jenkins:buildNumber", String.valueOf(this.runData.getNumber()));
-            b.addParameter("jenkins:jobName", this.runData.getFullName());
 
             final Map<String, String> properties = new HashMap<> ();
             fillProperties ( properties );
@@ -88,19 +78,17 @@ public class UploaderV2 extends AbstractUploader
             fullUri = b.build ();
 
         }
-        catch ( final URISyntaxException e )
+        catch ( URISyntaxException e )
         {
-            throw new IOException ( e );
+            throw new URIException ( e.getReason () );
         }
         return fullUri;
     }
 
-    @Override
-    public void addArtifact ( File file, String filename ) throws IOException
-    {
-        filesToUpload.put ( file, filename );
-    }
-
+    /*
+     * (non-Javadoc)
+     * @see de.dentrassi.pm.jenkins.Uploader#performUpload()
+     */
     @Override
     public void performUpload () throws IOException
     {
@@ -114,32 +102,24 @@ public class UploaderV2 extends AbstractUploader
     private void uploadArtifact ( final File file, final String filename ) throws IOException
     {
         final URI uri = makeUrl ( filename );
-        final HttpPut httppost = new HttpPut ( uri );
+        final HttpPut httpPut = new HttpPut ( uri );
 
-        final InputStream stream = new FileInputStream ( file );
-        try
+        httpPut.setEntity ( new FileEntity ( file ) );
+
+        final HttpResponse response = this.client.execute ( httpPut );
+        final HttpEntity resEntity = response.getEntity ();
+
+        if ( resEntity != null )
         {
-            httppost.setEntity ( new InputStreamEntity ( stream, file.length () ) );
-
-            final HttpResponse response = this.client.execute ( httppost );
-            final HttpEntity resEntity = response.getEntity ();
-
-            if ( resEntity != null )
+            switch ( response.getStatusLine ().getStatusCode () )
             {
-                switch ( response.getStatusLine ().getStatusCode () )
-                {
-                    case 200:
-                        addUploadedArtifacts ( filename, resEntity );
-                        break;
-                    default:
-                        addUploadFailure ( filename, response );
-                        break;
-                }
+                case 200:
+                    addUploadedArtifacts ( filename, resEntity );
+                    break;
+                default:
+                    addUploadFailure ( filename, response );
+                    break;
             }
-        }
-        finally
-        {
-            stream.close ();
         }
     }
 

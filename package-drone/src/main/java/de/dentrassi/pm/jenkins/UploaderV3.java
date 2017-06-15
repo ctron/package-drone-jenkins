@@ -17,6 +17,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -27,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.httpclient.URIException;
 import org.apache.commons.httpclient.util.URIUtil;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
@@ -34,7 +37,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.entity.InputStreamEntity;
+import org.apache.http.entity.FileEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.eclipse.packagedrone.repo.api.transfer.TransferArchiveWriter;
 import org.eclipse.packagedrone.repo.api.upload.ArtifactInformation;
@@ -59,10 +62,6 @@ public class UploaderV3 extends AbstractUploader
 
     private final String channelId;
 
-    private final File tempFile;
-
-    private TransferArchiveWriter transfer;
-
     public UploaderV3(final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId) throws IOException
     {
         super(runData);
@@ -73,100 +72,119 @@ public class UploaderV3 extends AbstractUploader
         this.channelId = channelId;
 
         listener.getLogger ().println ( "Uploading using Package Drone V3 uploader" );
-
-        this.tempFile = File.createTempFile ( "pdrone-", "upload" );
-
-        try
-        {
-            this.transfer = new TransferArchiveWriter ( new BufferedOutputStream ( new FileOutputStream ( this.tempFile ) ) );
-        }
-        catch ( final IOException e )
-        {
-            // delete in case of early abort
-            if ( ! this.tempFile.delete () )
-            {
-                this.tempFile.deleteOnExit();
-            }
-            throw e;
-        }
     }
 
-    @Override
-    public void addArtifact ( final File file, final String filename ) throws IOException
-    {
-        final InputStream in = new FileInputStream ( file );
-        try
-        {
-            final Map<String, String> properties = new HashMap<String, String> ();
-            fillProperties ( properties );
-            this.transfer.createEntry ( filename, properties, new BufferedInputStream ( in ) );
-        }
-        catch ( final IOException e )
-        {
-            throw new IOException ( "Failed to write to the upload archive", e );
-        }
-        finally
-        {
-            in.close ();
-        }
-    }
-
+    /*
+     * (non-Javadoc)
+     * @see de.dentrassi.pm.jenkins.Uploader#performUpload()
+     */
     @Override
     public void performUpload () throws IOException
     {
+        File archiveFile = null;
         try
         {
-            closeTransfer ();
+            final URI uri = makeUrl ();
 
-            final URIBuilder uri = new URIBuilder ( String.format ( "%s/api/v3/upload/archive/channel/%s", this.serverUrl, URIUtil.encodeWithinPath ( this.channelId ) ) );
+            this.listener.getLogger ().println ( "API endpoint: " + uri.toString () );
 
-            this.listener.getLogger ().println ( "API endpoint: " + uri.build ().toString () );
-
-            final HttpPut httppost = new HttpPut ( uri.build () );
+            final HttpPut httpPut = new HttpPut ( uri );
 
             final String encodedAuth = Base64.encodeBase64String ( ( "deploy:" + this.deployKey ).getBytes ( "ISO-8859-1" ) );
-            httppost.setHeader ( HttpHeaders.AUTHORIZATION, "Basic " + encodedAuth );
+            httpPut.setHeader ( HttpHeaders.AUTHORIZATION, "Basic " + encodedAuth );
 
-            final InputStream stream = new FileInputStream ( this.tempFile );
-            try
+            // constructs the archive only when is needed
+            archiveFile = createTransferArchive ();
+            httpPut.setEntity ( new FileEntity ( archiveFile ) );
+
+            final HttpResponse response = this.client.execute ( httpPut );
+            final HttpEntity resEntity = response.getEntity ();
+
+            this.listener.getLogger ().println ( "Call returned: " + response.getStatusLine () );
+
+            if ( resEntity != null )
             {
-                httppost.setEntity ( new InputStreamEntity ( stream, this.tempFile.length () ) );
-
-                final HttpResponse response = this.client.execute ( httppost );
-                final HttpEntity resEntity = response.getEntity ();
-
-                this.listener.getLogger ().println ( "Call returned: " + response.getStatusLine () );
-
-                if ( resEntity != null )
+                switch ( response.getStatusLine ().getStatusCode () )
                 {
-                    switch ( response.getStatusLine ().getStatusCode () )
-                    {
-                        case 200:
-                            processUploadResult ( makeString ( resEntity ) );
-                            return;
-                        case 404:
-                            throw new IOException ( Messages.UploaderV3_failedToFindEndpoint () );
-                        default:
-                            String errorMessage = "Failed to upload: " + response.getStatusLine ();
-                            String httpResponseErrorMessage = getErrorMessage ( response );
-                            if ( httpResponseErrorMessage != null )
-                            {
-                                errorMessage += "\n" + httpResponseErrorMessage;
-                            }
-                            throw new IOException ( errorMessage );
-                    }
+                    case 200:
+                        processUploadResult ( makeString ( resEntity ) );
+                        break;
+                    case 404:
+                        throw new IOException ( Messages.UploaderV3_failedToFindEndpoint () );
+                    default:
+                        String errorMessage = Messages.UploaderV3_failedToUpload ( response.getStatusLine () );
+                        String httpResponseErrorMessage = getErrorMessage ( response );
+                        if ( httpResponseErrorMessage != null )
+                        {
+                            errorMessage += "\n" + httpResponseErrorMessage;
+                        }
+                        throw new IOException ( errorMessage );
                 }
-
-                addErrorMessage ( "Did not receive a result" );
             }
-            finally
+            else
             {
-                stream.close ();
+                addErrorMessage ( "Did not receive a result" );
             }
         }
         catch ( final URISyntaxException e )
         {
             throw new IOException ( "Upload URL syntax error: " + e.getMessage (), e );
+        }
+        finally
+        {
+            deleteFile ( archiveFile );
+        }
+    }
+
+    private URI makeUrl () throws URISyntaxException, URIException
+    {
+        final URI fullUri;
+        try
+        {
+            String serverURL = this.serverUrl.endsWith ( "/" ) ? this.serverUrl.substring ( 0, this.serverUrl.length () - 1 ) : this.serverUrl;
+            final URIBuilder builder = new URIBuilder ( serverURL );
+
+            builder.setPath ( String.format ( "%s/api/v3/upload/archive/channel/%s", builder.getPath (), URIUtil.encodeWithinPath ( this.channelId ) ) );
+
+            fullUri = builder.build ();
+        }
+        catch ( URISyntaxException e )
+        {
+            throw new URIException ( e.getReason () );
+        }
+        return fullUri;
+    }
+
+    private File createTransferArchive () throws IOException
+    {
+        File archiveFile = File.createTempFile ( "pdrone-", "upload" );
+        try ( OutputStream os = new FileOutputStream ( archiveFile ) )
+        {
+            TransferArchiveWriter transfer = new TransferArchiveWriter ( new BufferedOutputStream ( os ) );
+            for ( java.util.Map.Entry<File, String> entry : filesToUpload.entrySet () )
+            {
+                final Map<String, String> properties = new HashMap<> ();
+                fillProperties ( properties );
+                try ( InputStream in = new FileInputStream ( entry.getKey () ) )
+                {
+                    transfer.createEntry ( entry.getValue (), properties, new BufferedInputStream ( in ) );
+                }
+            }
+            transfer.close ();
+        }
+        catch ( IOException e )
+        {
+            deleteFile ( archiveFile );
+            throw new IOException ( Messages.UploaderV3_failedToCreateArchive (), e );
+        }
+        return archiveFile;
+    }
+
+    private void deleteFile ( File archiveFile )
+    {
+        if ( archiveFile != null && !archiveFile.delete () )
+        {
+            archiveFile.deleteOnExit ();
         }
     }
 
@@ -183,7 +201,7 @@ public class UploaderV3 extends AbstractUploader
         {
             return null;
         }
-        
+
         return error.getMessage ();
     }
 
@@ -198,7 +216,7 @@ public class UploaderV3 extends AbstractUploader
             this.listener.getLogger ().println ();
             this.listener.annotate ( makeArtifactsList ( result ) );
             this.listener.getLogger ().println ();
-            
+
             createArtifactsMap ( result );
         }
         catch ( final Exception e )
@@ -264,7 +282,7 @@ public class UploaderV3 extends AbstractUploader
 
     private ExpandableDetailsNote makeArtifactsList ( final UploadResult result )
     {
-        final List<Entry> entries = new ArrayList<Entry> ( result.getCreatedArtifacts ().size () + result.getRejectedArtifacts ().size () );
+        final List<Entry> entries = new ArrayList<> ( result.getCreatedArtifacts ().size () + result.getRejectedArtifacts ().size () );
 
         for ( final ArtifactInformation ai : result.getCreatedArtifacts () )
         {
@@ -332,22 +350,4 @@ public class UploaderV3 extends AbstractUploader
         this.listener.error ( message );
     }
 
-    @Override
-    public void close () throws IOException
-    {
-        closeTransfer ();
-        if ( ! this.tempFile.delete () )
-        {
-            this.tempFile.deleteOnExit();
-        }
-    }
-
-    private void closeTransfer () throws IOException
-    {
-        if ( this.transfer != null )
-        {
-            this.transfer.close ();
-            this.transfer = null;
-        }
-    }
 }

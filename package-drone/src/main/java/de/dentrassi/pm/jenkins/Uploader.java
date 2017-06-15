@@ -15,22 +15,26 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 
+/**
+ * The interface represent a task to perform the physical operations to upload
+ * resource to a package drone server.
+ */
 public interface Uploader extends Closeable
 {
     /**
-     * Add a single file for upload.
+     * Gathers a single file for upload with the given filename.
      *
      * @param file
-     *            the file to be uploaded
+     *            the local file to be uploaded.
      * @param filename
-     *            the name for the uploaded file
+     *            the name for the uploaded file.
      * @throws IOException
-     *             if adding the artifact fails
+     *             raised when in case the file is not accessible.
      */
     public void addArtifact ( File file, String filename ) throws IOException;
 
     /**
-     * Upload the artifacts.
+     * Uploads all gathered artifacts to the server.
      *
      * @throws IOException
      *             if performing the upload fails
@@ -38,13 +42,11 @@ public interface Uploader extends Closeable
     public void performUpload () throws IOException;
 
     /**
-     * Returns a map of all artifacts successfully uploaded to the server.
+     * Returns all artifacts successfully uploaded to the server.
      *
      * @return a map of identifier (assigned by the server) - artifact name
-     *         upload with success
+     *         upload with success.
      */
     public Map<String, String> getUploadedArtifacts ();
 
-    @Override
-    public void close () throws IOException;
 }

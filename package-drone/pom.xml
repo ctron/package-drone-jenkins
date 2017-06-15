@@ -144,6 +144,12 @@
 								</goals>
 							</execution>
 						</executions>
+						<configuration>
+							<excludes>
+								<!-- remove code duplicated from package drone server -->
+								<exclude>org/eclipse/packagedrone/**/*</exclude>
+							</excludes>
+						</configuration>
 					</plugin>
 				</plugins>
 			</build>

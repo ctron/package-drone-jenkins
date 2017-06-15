@@ -10,17 +10,17 @@
  *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
-
-import com.google.common.io.CharStreams;
 
 public abstract class AbstractUploader implements Uploader
 {
@@ -30,15 +30,19 @@ public abstract class AbstractUploader implements Uploader
 
     private final SimpleDateFormat sdf;
 
+    protected final Map<File, String> filesToUpload;
+
     /**
      * Map containing the id and filename of the successfully uploaded artifacts
      * Fill from the upload results
      */
-    protected final Map<String, String> uploadedArtifacts = new HashMap<> ();
+    protected final Map<String, String> uploadedArtifacts;
 
     public AbstractUploader ( final RunData runData )
     {
         this.runData = runData;
+        this.filesToUpload = new HashMap<> ();
+        this.uploadedArtifacts = new HashMap<> ();
         this.sdf = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
         this.sdf.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
     }
@@ -54,20 +58,32 @@ public abstract class AbstractUploader implements Uploader
 
     protected static String makeString ( final HttpEntity entity ) throws IOException
     {
-        final InputStreamReader reader = new InputStreamReader ( entity.getContent (), UTF_8 );
-        try
-        {
-            return CharStreams.toString ( reader ).trim ();
-        }
-        finally
-        {
-            reader.close ();
-        }
+        return IOUtils.toString ( entity.getContent (), UTF_8 );
     }
 
+    /*
+     * (non-Javadoc)
+     * @see de.dentrassi.pm.jenkins.Uploader#addArtifact(java.io.File, java.lang.String)
+     */
+    @Override
+    public void addArtifact ( final File file, final String filename )
+    {
+        filesToUpload.put ( file, filename );
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see de.dentrassi.pm.jenkins.Uploader#getUploadedArtifacts()
+     */
     @Override
     public Map<String, String> getUploadedArtifacts ()
     {
-        return uploadedArtifacts;
+        return Collections.unmodifiableMap ( uploadedArtifacts );
+    }
+
+    @Override
+    public void close () throws IOException
+    {
+        // do nothing
     }
 }
