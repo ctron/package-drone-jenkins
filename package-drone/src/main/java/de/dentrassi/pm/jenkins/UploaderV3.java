@@ -56,20 +56,14 @@ public class UploaderV3 extends AbstractUploader
 
     private final TaskListener listener;
 
-    private final String serverUrl;
+    private final ServerData serverData;
 
-    private final String deployKey;
-
-    private final String channelId;
-
-    public UploaderV3(final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId) throws IOException
+    public UploaderV3 ( final RunData runData, final TaskListener listener, final ServerData serverData ) throws IOException
     {
         super(runData);
         this.client = new DefaultHttpClient ();
         this.listener = listener;
-        this.serverUrl = serverUrl;
-        this.deployKey = deployKey;
-        this.channelId = channelId;
+        this.serverData = serverData;
 
         listener.getLogger ().println ( "Uploading using Package Drone V3 uploader" );
     }
@@ -90,7 +84,7 @@ public class UploaderV3 extends AbstractUploader
 
             final HttpPut httpPut = new HttpPut ( uri );
 
-            final String encodedAuth = Base64.encodeBase64String ( ( "deploy:" + this.deployKey ).getBytes ( "ISO-8859-1" ) );
+            final String encodedAuth = Base64.encodeBase64String ( ( "deploy:" + this.serverData.getDeployKey () ).getBytes ( "ISO-8859-1" ) );
             httpPut.setHeader ( HttpHeaders.AUTHORIZATION, "Basic " + encodedAuth );
 
             // constructs the archive only when is needed
@@ -141,10 +135,9 @@ public class UploaderV3 extends AbstractUploader
         final URI fullUri;
         try
         {
-            String serverURL = this.serverUrl.endsWith ( "/" ) ? this.serverUrl.substring ( 0, this.serverUrl.length () - 1 ) : this.serverUrl;
-            final URIBuilder builder = new URIBuilder ( serverURL );
+            final URIBuilder builder = new URIBuilder ( this.serverData.getServerURL () );
 
-            builder.setPath ( String.format ( "%s/api/v3/upload/archive/channel/%s", builder.getPath (), URIUtil.encodeWithinPath ( this.channelId ) ) );
+            builder.setPath ( String.format ( "%s/api/v3/upload/archive/channel/%s", builder.getPath (), URIUtil.encodeWithinPath ( this.serverData.getChannel () ) ) );
 
             fullUri = builder.build ();
         }
@@ -212,7 +205,7 @@ public class UploaderV3 extends AbstractUploader
             final UploadResult result = new GsonBuilder ().create ().fromJson ( string, UploadResult.class );
 
             this.listener.getLogger ().print ( "Uploaded to chanel: " );
-            this.listener.hyperlink ( UrlMaker.make ( this.serverUrl, result.getChannelId () ), result.getChannelId () );
+            this.listener.hyperlink ( UrlMaker.make ( this.serverData.getServerURL (), this.serverData.getChannel () ), this.serverData.getChannel () );
             this.listener.getLogger ().println ();
             this.listener.annotate ( makeArtifactsList ( result ) );
             this.listener.getLogger ().println ();
@@ -315,7 +308,7 @@ public class UploaderV3 extends AbstractUploader
             sb.append ( "<td>" ).append ( entry.getName () ).append ( "</td>" );
             if ( !entry.isRejected () )
             {
-                sb.append ( "<td>" ).append ( "<a target=\"_blank\" href=\"" ).append ( UrlMaker.make ( this.serverUrl, result.getChannelId (), entry.getId () ) ).append ( "\">" ).append ( entry.getId () ).append ( "</a>" ).append ( "</td>" );
+                sb.append ( "<td>" ).append ( "<a target=\"_blank\" href=\"" ).append ( UrlMaker.make ( this.serverData.getServerURL (), result.getChannelId (), entry.getId () ) ).append ( "\">" ).append ( entry.getId () ).append ( "</a>" ).append ( "</td>" );
                 sb.append ( "<td>" ).append ( entry.getArtifactInformation ().getSize () ).append ( "</td>" );
 
                 sb.append ( "<td>" );

@@ -28,10 +28,8 @@ public interface Uploader extends Closeable
      *            the local file to be uploaded.
      * @param filename
      *            the name for the uploaded file.
-     * @throws IOException
-     *             raised when in case the file is not accessible.
      */
-    public void addArtifact ( File file, String filename ) throws IOException;
+    public void addArtifact ( File file, String filename );
 
     /**
      * Uploads all gathered artifacts to the server.

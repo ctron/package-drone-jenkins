@@ -37,20 +37,14 @@ public class UploaderV2 extends AbstractUploader
 
     private final TaskListener listener;
 
-    private final String serverUrl;
+    private final ServerData serverData;
 
-    private final String deployKey;
-
-    private final String channelId;
-
-    public UploaderV2 ( final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId )
+    public UploaderV2 ( final RunData runData, final TaskListener listener, final ServerData serverData )
     {
         super ( runData );
         this.client = new DefaultHttpClient ();
         this.listener = listener;
-        this.serverUrl = serverUrl;
-        this.deployKey = deployKey;
-        this.channelId = channelId;
+        this.serverData = serverData;
 
         listener.getLogger ().println ( "Uploading using Package Drone V2 uploader" );
     }
@@ -61,11 +55,11 @@ public class UploaderV2 extends AbstractUploader
         try
         {
 
-            final URIBuilder b = new URIBuilder ( this.serverUrl );
+            final URIBuilder b = new URIBuilder ( this.serverData.getServerURL () );
 
-            b.setUserInfo ( "deploy", this.deployKey );
+            b.setUserInfo ( "deploy", this.serverData.getDeployKey () );
 
-            b.setPath ( b.getPath () + String.format ( "/api/v2/upload/channel/%s/%s", URIUtil.encodeWithinPath ( this.channelId ), file ) );
+            b.setPath ( b.getPath () + String.format ( "/api/v2/upload/channel/%s/%s", URIUtil.encodeWithinPath ( this.serverData.getChannel () ), file ) );
 
             final Map<String, String> properties = new HashMap<> ();
             fillProperties ( properties );
