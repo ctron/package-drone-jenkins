@@ -18,6 +18,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.commons.httpclient.URIException;
 import org.apache.commons.httpclient.util.URIUtil;
@@ -43,7 +45,8 @@ public class UploaderV2 extends AbstractUploader
 
     private final String channelId;
 
-    private boolean failed;
+    //Map containing files and names to be uploaded in perfomUpload
+    private final Map<File, String> filesToUpload = new HashMap<> ();
 
     public UploaderV2 ( final RunData runData, final TaskListener listener, final String serverUrl, final String deployKey, final String channelId )
     {
@@ -74,7 +77,7 @@ public class UploaderV2 extends AbstractUploader
             b.addParameter("jenkins:buildNumber", String.valueOf(this.runData.getNumber()));
             b.addParameter("jenkins:jobName", this.runData.getFullName());
 
-            final Map<String, String> properties = new HashMap<String, String> ();
+            final Map<String, String> properties = new HashMap<> ();
             fillProperties ( properties );
 
             for ( final Map.Entry<String, String> entry : properties.entrySet () )
@@ -93,7 +96,22 @@ public class UploaderV2 extends AbstractUploader
     }
 
     @Override
-    public void upload ( final File file, final String filename ) throws IOException
+    public void addArtifact ( File file, String filename ) throws IOException
+    {
+        filesToUpload.put ( file, filename );
+    }
+
+    @Override
+    public void performUpload () throws IOException
+    {
+        Set<Entry<File, String>> entries = filesToUpload.entrySet ();
+        for ( Entry<File, String> entry : entries )
+        {
+            uploadArtifact ( entry.getKey (), entry.getValue () );
+        }
+    }
+
+    private void uploadArtifact ( final File file, final String filename ) throws IOException
     {
         final URI uri = makeUrl ( filename );
         final HttpPut httppost = new HttpPut ( uri );
@@ -125,24 +143,18 @@ public class UploaderV2 extends AbstractUploader
         }
     }
 
-    @Override
-    public boolean complete ()
-    {
-        return !this.failed;
-    }
-
     private void addUploadFailure ( final String fileName, final HttpResponse response ) throws IOException
     {
-        this.failed = true;
-
         final String message = makeString ( response.getEntity () );
 
-        this.listener.error ( "Failed to upload %s: %s %s = %s", fileName, response.getStatusLine ().getStatusCode (), response.getStatusLine ().getReasonPhrase (), message );
+        throw new IOException ( Messages.UploaderV2_failedToUpload ( fileName, response.getStatusLine ().getStatusCode (), response.getStatusLine ().getReasonPhrase (), message ) );
     }
 
     private void addUploadedArtifacts ( final String fileName, final HttpEntity resEntity ) throws IOException
     {
         final String artId = makeString ( resEntity );
+
+        uploadedArtifacts.put ( artId, fileName );
 
         this.listener.getLogger ().format ( "Uploaded %s as ", fileName );
 
@@ -161,5 +173,4 @@ public class UploaderV2 extends AbstractUploader
             this.client.getConnectionManager ().shutdown ();
         }
     }
-
 }

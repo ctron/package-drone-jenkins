@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
 
@@ -28,6 +29,12 @@ public abstract class AbstractUploader implements Uploader
     protected final RunData runData;
 
     private final SimpleDateFormat sdf;
+
+    /**
+     * Map containing the id and filename of the successfully uploaded artifacts
+     * Fill from the upload results
+     */
+    protected final Map<String, String> uploadedArtifacts = new HashMap<> ();
 
     public AbstractUploader ( final RunData runData )
     {
@@ -58,4 +65,9 @@ public abstract class AbstractUploader implements Uploader
         }
     }
 
+    @Override
+    public Map<String, String> getUploadedArtifacts ()
+    {
+        return uploadedArtifacts;
+    }
 }
