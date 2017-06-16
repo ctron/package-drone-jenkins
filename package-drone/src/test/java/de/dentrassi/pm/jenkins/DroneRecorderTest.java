@@ -10,6 +10,8 @@ import static org.mockito.Mockito.when;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
@@ -83,10 +85,13 @@ public class DroneRecorderTest
         UploaderResult result = new UploaderResult ();
         result.setFailed ( true );
         HashMap<String, String> artifacts = new HashMap<>();
-        artifacts.put ( "file1", "/tmp/file1.jar" );
+        artifacts.put ( "18a1a4ba-f8fa-4a64-bcd2-14e996fb74ac", "file1.jar" );
         result.addUploadedArtifacts ( artifacts );
 
-        MockDroneRecorder buildStep = spy ( new MockDroneRecorder ( "http://myserver.com", "channel1", "secret", "*.zip" ) );
+        String serverURL = "http://myserver.com/pdrone";
+        String channel = "channel1";
+
+        MockDroneRecorder buildStep = spy ( new MockDroneRecorder ( serverURL, channel, "secret", "*.zip" ) );
         buildStep.setFailsAsUpload ( true );
         createFileCallable ( result, buildStep );
 
@@ -96,10 +101,7 @@ public class DroneRecorderTest
 
         r.assertBuildStatus ( Result.FAILURE, build );
 
-        BuildData buildData = build.getAction ( BuildData.class );
-        Assert.assertThat ( buildData, CoreMatchers.notNullValue () );
-        // tests that uploads are registered
-        Assert.assertEquals ( buildData.getArtifacts (), artifacts );
+        verifyBuildData ( artifacts, serverURL, channel, build );
     }
 
     private void createFileCallable ( UploaderResult result, MockDroneRecorder buildStep ) throws IOException, InterruptedException
@@ -115,8 +117,8 @@ public class DroneRecorderTest
     {
         UploaderResult result = new UploaderResult ();
         HashMap<String, String> artifacts = new HashMap<> ();
-        artifacts.put ( "file1", "/tmp/file1.jar" );
-        artifacts.put ( "file2", "/tmp/file2.jar" );
+        artifacts.put ( "18a1a4ba-f8fa-4a64-bcd2-14e996fb74ac", "file1.jar" );
+        artifacts.put ( "14e996fb74ac-4a64-bcd2-f8fa-18a1a4ba", "file2.jar" );
         result.addUploadedArtifacts ( artifacts );
 
         String serverURL = "http://myserver.com";
@@ -132,11 +134,24 @@ public class DroneRecorderTest
 
         r.assertBuildStatus ( Result.SUCCESS, build );
 
+        verifyBuildData ( artifacts, serverURL, channel, build );
+    }
+
+    private void verifyBuildData ( HashMap<String, String> artifacts, String serverURL, String channel, FreeStyleBuild build )
+    {
         BuildData buildData = build.getAction ( BuildData.class );
         Assert.assertThat ( buildData, CoreMatchers.notNullValue () );
         Assert.assertThat ( buildData.getServerUrl (), CoreMatchers.is ( serverURL ) );
         Assert.assertThat ( buildData.getChannel (), CoreMatchers.is ( channel ) );
-        Assert.assertEquals ( buildData.getArtifacts (), artifacts );
+
+        Map<String, String> artifactsInPage = buildData.getArtifacts ();
+        Assert.assertThat ( artifactsInPage.size (), CoreMatchers.equalTo ( artifacts.size () ) );
+        for ( Entry<String, String> entry : artifacts.entrySet () )
+        {
+            Assert.assertTrue ( artifactsInPage.containsKey ( entry.getValue () ) );
+            // verify that value in build data is an URL
+            Assert.assertThat ( artifactsInPage.get ( entry.getValue () ), CoreMatchers.equalTo ( URLMaker.make ( serverURL, channel, entry.getKey () ) ) );
+        }
     }
 
 }

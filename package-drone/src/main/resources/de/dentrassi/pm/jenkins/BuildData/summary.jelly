@@ -14,7 +14,7 @@
 		
 		<ul>
 		<j:forEach var="entry" items="${it.artifacts}">
-			<li>${entry.key} = ${entry.value}</li>
+			<li><a href="${entry.value}">${entry.key}</a></li>
         </j:forEach>
         </ul>
 		
