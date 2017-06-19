@@ -48,7 +48,7 @@ public class BuildData implements Action, Serializable, Cloneable, ProminentProj
     @Override
     public String getDisplayName ()
     {
-        return "Package Drone";
+        return Messages.BuildData_displayName ();
     }
 
     @Override

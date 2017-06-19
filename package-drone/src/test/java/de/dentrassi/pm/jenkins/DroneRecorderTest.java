@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2017 Nikolas Falco.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *     Nikolas Falco - author of some PRs
+ *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -104,11 +114,41 @@ public class DroneRecorderTest
         verifyBuildData ( artifacts, serverURL, channel, build );
     }
 
-    private void createFileCallable ( UploaderResult result, MockDroneRecorder buildStep ) throws IOException, InterruptedException
+    @Test
+    public void handle_exceptions_from_uploader () throws Exception
+    {
+        UploaderResult result = new UploaderResult ();
+        result.setFailed ( true );
+        HashMap<String, String> artifacts = new HashMap<> ();
+        artifacts.put ( "18a1a4ba-f8fa-4a64-bcd2-14e996fb74ac", "file1.jar" );
+        result.addUploadedArtifacts ( artifacts );
+
+        String serverURL = "http://myserver.com/pdrone";
+        String channel = "channel1";
+
+        MockDroneRecorder buildStep = spy ( new MockDroneRecorder ( serverURL, channel, "secret", "*.zip" ) );
+        createFileCallable ( new IOException ( "Comunication error" ), buildStep );
+
+        FreeStyleProject project = r.createFreeStyleProject ( "fail_as_upload" );
+        project.getPublishersList ().add ( buildStep );
+        FreeStyleBuild build = project.scheduleBuild2 ( 0 ).get ();
+
+        r.assertBuildStatus ( Result.FAILURE, build );
+        r.assertLogContains ( "Comunication error", build );
+    }
+
+    private void createFileCallable ( Object result, MockDroneRecorder buildStep ) throws IOException, InterruptedException
     {
         @SuppressWarnings ( "unchecked" )
         FileCallable<UploaderResult> callable = mock ( FileCallable.class );
-        when ( callable.invoke ( any ( File.class ), any ( VirtualChannel.class ) ) ).thenReturn ( result );
+        if ( result instanceof Exception )
+        {
+            when ( callable.invoke ( any ( File.class ), any ( VirtualChannel.class ) ) ).thenThrow ( (Throwable)result );
+        }
+        else
+        {
+            when ( callable.invoke ( any ( File.class ), any ( VirtualChannel.class ) ) ).thenReturn ( (UploaderResult)result );
+        }
         doReturn ( callable ).when ( buildStep ).createCallable ( any ( Run.class ), any ( LoggerListenerWrapper.class ), anyString (), any ( ServerData.class ) );
     }
 
@@ -141,6 +181,9 @@ public class DroneRecorderTest
     {
         BuildData buildData = build.getAction ( BuildData.class );
         Assert.assertThat ( buildData, CoreMatchers.notNullValue () );
+        Assert.assertThat ( buildData.getIconFileName (), CoreMatchers.is ( "/plugin/package-drone/images/pdrone-32x32.png" ) );
+        Assert.assertThat ( buildData.getDisplayName (), CoreMatchers.is ( Messages.BuildData_displayName () ) );
+        Assert.assertThat ( buildData.getUrlName (), CoreMatchers.is ( URLMaker.make ( serverURL, channel ) ) );
         Assert.assertThat ( buildData.getServerUrl (), CoreMatchers.is ( serverURL ) );
         Assert.assertThat ( buildData.getChannel (), CoreMatchers.is ( channel ) );
 

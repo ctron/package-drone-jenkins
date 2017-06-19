@@ -1,9 +1,23 @@
+/*******************************************************************************
+ * Copyright (c) 2017 Nikolas Falco.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *     Nikolas Falco - author of some PRs
+ *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
-import static org.junit.Assert.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.BDDMockito.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -19,6 +33,7 @@ import java.util.TimeZone;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
 import org.apache.http.impl.client.DefaultHttpClient;
@@ -50,42 +65,45 @@ public class UploaderV2Test
         when ( listener.getLogger () ).thenReturn ( mock ( PrintStream.class ) );
 
         // build uploader and mock its internal the http client
-        UploaderV2 uploader = new UploaderV2 ( runData, listener, serverData );
-
-        uploader.addArtifact ( folder.newFile (), "f1" );
-        uploader.addArtifact ( folder.newFile (), "f2" );
-
-        DefaultHttpClient client = mock ( DefaultHttpClient.class );
-        given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 200 ) );
-
-        setMockClient ( uploader, client );
-
-        uploader.performUpload ();
-
-        Map<String, String> uploadedArtifacts = uploader.getUploadedArtifacts ();
-        assertThat ( uploadedArtifacts.keySet (), CoreMatchers.hasItems ( "f1Id", "f2Id" ) );
-        assertThat ( uploadedArtifacts.values (), CoreMatchers.hasItems ( "f1", "f2" ) );
-
-        ArgumentCaptor<HttpUriRequest> argument = ArgumentCaptor.forClass ( HttpUriRequest.class );
-        verify ( client, times ( 2 ) ).execute ( argument.capture () );
-
-        SimpleDateFormat sdf = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
-        sdf.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
-
-        for ( HttpUriRequest put : argument.getAllValues () )
+        try ( UploaderV2 uploader = new UploaderV2 ( runData, listener, serverData ) )
         {
-            URI host = new URI ( serverData.getServerURL () );
-            assertThat ( put.getURI ().getScheme (), CoreMatchers.is ( host.getScheme () ) );
-            assertThat ( put.getURI ().getHost (), CoreMatchers.is ( host.getHost () ) );
-            assertThat ( put.getURI ().getPort (), CoreMatchers.is ( -1 ) );
-            assertThat ( put.getURI ().getPath (), CoreMatchers.startsWith ( "/api/v2/upload/channel/" + serverData.getChannel () + "/f" ) );
-            assertThat ( put.getURI ().getQuery (), CoreMatchers.allOf ( //
-                    CoreMatchers.containsString ( "jenkins:timestamp=" + sdf.format ( runData.getTime () ).replace ( ' ', '+' ) ), //
-                    CoreMatchers.containsString ( "jenkins:buildUrl=http://localhost:8080/jenkins" ), //
-                    CoreMatchers.containsString ( "jenkins:jobName=test_job" ), //
-                    CoreMatchers.containsString ( "jenkins:buildNumber=1" ), //
-                    CoreMatchers.containsString ( "jenkins:buildId=test_job" ) ) );
-            assertThat ( put.getURI ().getFragment (), CoreMatchers.nullValue () );
+
+            uploader.addArtifact ( folder.newFile (), "f1" );
+            uploader.addArtifact ( folder.newFile (), "f2" );
+
+            DefaultHttpClient client = mock ( DefaultHttpClient.class );
+            given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 200 ) );
+            given ( client.getConnectionManager () ).willReturn ( mock ( ClientConnectionManager.class ) );
+
+            setMockClient ( uploader, client );
+
+            uploader.performUpload ();
+
+            Map<String, String> uploadedArtifacts = uploader.getUploadedArtifacts ();
+            assertThat ( uploadedArtifacts.keySet (), CoreMatchers.hasItems ( "f1Id", "f2Id" ) );
+            assertThat ( uploadedArtifacts.values (), CoreMatchers.hasItems ( "f1", "f2" ) );
+
+            ArgumentCaptor<HttpUriRequest> argument = ArgumentCaptor.forClass ( HttpUriRequest.class );
+            verify ( client, times ( 2 ) ).execute ( argument.capture () );
+
+            SimpleDateFormat sdf = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
+            sdf.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
+
+            for ( HttpUriRequest put : argument.getAllValues () )
+            {
+                URI host = new URI ( serverData.getServerURL () );
+                assertThat ( put.getURI ().getScheme (), CoreMatchers.is ( host.getScheme () ) );
+                assertThat ( put.getURI ().getHost (), CoreMatchers.is ( host.getHost () ) );
+                assertThat ( put.getURI ().getPort (), CoreMatchers.is ( -1 ) );
+                assertThat ( put.getURI ().getPath (), CoreMatchers.startsWith ( "/api/v2/upload/channel/" + serverData.getChannel () + "/f" ) );
+                assertThat ( put.getURI ().getQuery (), CoreMatchers.allOf ( //
+                        CoreMatchers.containsString ( "jenkins:timestamp=" + sdf.format ( runData.getTime () ).replace ( ' ', '+' ) ), //
+                        CoreMatchers.containsString ( "jenkins:buildUrl=http://localhost:8080/jenkins" ), //
+                        CoreMatchers.containsString ( "jenkins:jobName=test_job" ), //
+                        CoreMatchers.containsString ( "jenkins:buildNumber=1" ), //
+                        CoreMatchers.containsString ( "jenkins:buildId=test_job" ) ) );
+                assertThat ( put.getURI ().getFragment (), CoreMatchers.nullValue () );
+            }
         }
     }
 
@@ -100,29 +118,30 @@ public class UploaderV2Test
         when ( listener.getLogger () ).thenReturn ( mock ( PrintStream.class ) );
 
         // build uploader and mock its internal the http client
-        UploaderV2 uploader = new UploaderV2 ( runData, listener, serverData );
-
-        uploader.addArtifact ( folder.newFile (), "f1" );
-        uploader.addArtifact ( folder.newFile (), "f2" );
-
-        DefaultHttpClient client = mock ( DefaultHttpClient.class );
-        given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 500 ) );
-
-        setMockClient ( uploader, client );
-
-        try
+        try ( UploaderV2 uploader = new UploaderV2 ( runData, listener, serverData ) )
         {
-            uploader.performUpload ();
-            fail ( "expected a IOException during upload of file f2" );
-        }
-        catch ( IOException e )
-        {
-            assertThat ( e.getMessage (), CoreMatchers.is ( Messages.UploaderV2_failedToUpload ( "f2", 500, "Internal Server Error", "f2Id" ) ) );
-        }
+            uploader.addArtifact ( folder.newFile (), "f1" );
+            uploader.addArtifact ( folder.newFile (), "f2" );
 
-        Map<String, String> uploadedArtifacts = uploader.getUploadedArtifacts ();
-        assertThat ( uploadedArtifacts.keySet (), CoreMatchers.hasItems ( "f1Id" ) );
-        assertThat ( uploadedArtifacts.values (), CoreMatchers.hasItems ( "f1" ) );
+            DefaultHttpClient client = mock ( DefaultHttpClient.class );
+            given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 500 ) );
+            given ( client.getConnectionManager () ).willReturn ( mock ( ClientConnectionManager.class ) );
+
+            setMockClient ( uploader, client );
+            try
+            {
+                uploader.performUpload ();
+                fail ( "expected a IOException during upload of file f2" );
+            }
+            catch ( IOException e )
+            {
+                assertThat ( e.getMessage (), CoreMatchers.is ( Messages.UploaderV2_failedToUpload ( "f2", 500, "Internal Server Error", "f2Id" ) ) );
+            }
+
+            Map<String, String> uploadedArtifacts = uploader.getUploadedArtifacts ();
+            assertThat ( uploadedArtifacts.keySet (), CoreMatchers.hasItems ( "f1Id" ) );
+            assertThat ( uploadedArtifacts.values (), CoreMatchers.hasItems ( "f1" ) );
+        }
     }
 
     private void setMockClient ( UploaderV2 uploader, DefaultHttpClient client ) throws IllegalAccessException
