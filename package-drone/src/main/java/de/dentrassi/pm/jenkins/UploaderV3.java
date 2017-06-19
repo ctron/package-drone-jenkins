@@ -47,25 +47,25 @@ import org.eclipse.packagedrone.repo.api.upload.UploadResult;
 
 import com.google.gson.GsonBuilder;
 
+import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 import hudson.console.ExpandableDetailsNote;
-import hudson.model.TaskListener;
 
 public class UploaderV3 extends AbstractUploader
 {
     private final HttpClient client;
 
-    private final TaskListener listener;
+    private final LoggerListenerWrapper listener;
 
     private final ServerData serverData;
 
-    public UploaderV3 ( final RunData runData, final TaskListener listener, final ServerData serverData ) throws IOException
+    public UploaderV3 ( final RunData runData, final LoggerListenerWrapper listener, final ServerData serverData ) throws IOException
     {
         super(runData);
         this.client = new DefaultHttpClient ();
         this.listener = listener;
         this.serverData = serverData;
 
-        listener.getLogger ().println ( "Uploading using Package Drone V3 uploader" );
+        listener.info ( "Uploading using Package Drone V3 uploader" );
     }
 
     /*
@@ -80,7 +80,7 @@ public class UploaderV3 extends AbstractUploader
         {
             final URI uri = makeUrl ();
 
-            this.listener.getLogger ().println ( "API endpoint: " + uri.toString () );
+            this.listener.debug ( "API endpoint: " + uri.toString () );
 
             final HttpPut httpPut = new HttpPut ( uri );
 
@@ -94,7 +94,7 @@ public class UploaderV3 extends AbstractUploader
             final HttpResponse response = this.client.execute ( httpPut );
             final HttpEntity resEntity = response.getEntity ();
 
-            this.listener.getLogger ().println ( "Call returned: " + response.getStatusLine () );
+            this.listener.debug ( "Call returned: " + response.getStatusLine () );
 
             if ( resEntity != null )
             {
@@ -117,7 +117,7 @@ public class UploaderV3 extends AbstractUploader
             }
             else
             {
-                addErrorMessage ( "Did not receive a result" );
+                this.listener.error ( "Did not receive a result" );
             }
         }
         catch ( final URISyntaxException e )
@@ -336,11 +336,6 @@ public class UploaderV3 extends AbstractUploader
         sb.append ( "</tbody></table>" );
 
         return new ExpandableDetailsNote ( String.format ( "Uploaded: %s, rejected: %s", result.getCreatedArtifacts ().size (), result.getRejectedArtifacts ().size () ), sb.toString () );
-    }
-
-    private void addErrorMessage ( final String message )
-    {
-        this.listener.error ( message );
     }
 
 }

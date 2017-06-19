@@ -11,11 +11,19 @@ public class LoggerListenerWrapper implements TaskListener
 {
     private static final long serialVersionUID = -4032502466191759599L;
 
-    private TaskListener delegate;
+    private final TaskListener delegate;
+
+    private final boolean debug;
 
     public LoggerListenerWrapper ( TaskListener listener )
     {
+        this ( listener, false );
+    }
+
+    public LoggerListenerWrapper ( TaskListener listener, boolean debug )
+    {
         this.delegate = listener;
+        this.debug = debug;
     }
 
     @Override
@@ -35,6 +43,28 @@ public class LoggerListenerWrapper implements TaskListener
     public void hyperlink ( String url, String text ) throws IOException
     {
         delegate.hyperlink ( url, text );
+    }
+
+    public PrintWriter debug ( String msg )
+    {
+        PrintStream logger = delegate.getLogger ();
+        if ( debug )
+        {
+            logger.println ( msg );
+        }
+
+        return new PrintWriter ( logger );
+    }
+
+    public PrintWriter debug ( String format, Object... args )
+    {
+        PrintStream logger = delegate.getLogger ();
+        if ( debug )
+        {
+            logger.println ( String.format ( format, args ) );
+        }
+
+        return new PrintWriter ( logger );
     }
 
     public PrintWriter info ( String msg )

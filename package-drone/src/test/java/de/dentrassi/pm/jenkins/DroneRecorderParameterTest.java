@@ -1,8 +1,6 @@
 package de.dentrassi.pm.jenkins;
 
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.mockito.Mockito;
 
 import hudson.EnvVars;
@@ -13,9 +11,6 @@ import hudson.model.TaskListener;
 
 public class DroneRecorderParameterTest
 {
-    @Rule
-    public TemporaryFolder folder;
-
     @Test
     public void missing_server_url_fails_the_build () throws Exception
     {

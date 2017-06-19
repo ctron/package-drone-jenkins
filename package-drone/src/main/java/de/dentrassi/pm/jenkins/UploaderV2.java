@@ -29,24 +29,24 @@ import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.FileEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 
-import hudson.model.TaskListener;
+import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 
 public class UploaderV2 extends AbstractUploader
 {
     private final HttpClient client;
 
-    private final TaskListener listener;
+    private final LoggerListenerWrapper listener;
 
     private final ServerData serverData;
 
-    public UploaderV2 ( final RunData runData, final TaskListener listener, final ServerData serverData )
+    public UploaderV2 ( final RunData runData, final LoggerListenerWrapper listener, final ServerData serverData )
     {
         super ( runData );
         this.client = new DefaultHttpClient ();
         this.listener = listener;
         this.serverData = serverData;
 
-        listener.getLogger ().println ( "Uploading using Package Drone V2 uploader" );
+        listener.info ( "Uploading using Package Drone V2 uploader" );
     }
 
     private URI makeUrl ( final String file ) throws IOException
@@ -130,13 +130,10 @@ public class UploaderV2 extends AbstractUploader
 
         uploadedArtifacts.put ( artId, fileName );
 
-        this.listener.getLogger ().format ( "Uploaded %s as ", fileName );
-
-        // FIXME: uploading can use channel alias, linking of artifacts not
-        // this.listener.hyperlink ( makeArtUrl ( artId ), artId );
-        this.listener.getLogger ().print ( artId ); // stick to plain id for now
-
-        this.listener.getLogger ().println ();
+        // TODO improve how use the logger
+        this.listener.getLogger ().print (  "Uploaded " );
+        this.listener.hyperlink ( URLMaker.make ( serverData.getServerURL (), serverData.getChannel (), artId ), fileName);
+        this.listener.info ( " to channel %s", serverData.getChannel () );
     }
 
     @Override

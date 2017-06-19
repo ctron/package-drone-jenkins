@@ -16,6 +16,7 @@ import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TimeZone;
 
@@ -41,7 +42,7 @@ public abstract class AbstractUploader implements Uploader
     public AbstractUploader ( final RunData runData )
     {
         this.runData = runData;
-        this.filesToUpload = new HashMap<> ();
+        this.filesToUpload = new LinkedHashMap<> ();
         this.uploadedArtifacts = new HashMap<> ();
         this.sdf = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
         this.sdf.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );

@@ -10,18 +10,13 @@
  *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
-import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.CoreMatchers.startsWith;
-import static org.junit.Assert.assertThat;
-import static org.powermock.api.mockito.PowerMockito.doReturn;
-import static org.powermock.api.mockito.PowerMockito.mock;
-import static org.powermock.api.mockito.PowerMockito.when;
+import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.*;
 
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
 import de.dentrassi.pm.jenkins.DroneRecorder.DescriptorImpl;
 import hudson.FilePath;
@@ -34,8 +29,6 @@ import hudson.util.FormValidation.Kind;
  *
  * @author Nikolas Falco
  */
-@RunWith ( PowerMockRunner.class )
-@PrepareForTest ( { FreeStyleProject.class, FilePath.class } )
 public class DroneRecorderValidatorTest
 {
 
@@ -54,7 +47,7 @@ public class DroneRecorderValidatorTest
         FreeStyleProject prj = mock ( FreeStyleProject.class );
         FilePath wks = mock ( FilePath.class );
         FormValidation expectedValidation = FormValidation.error ( "test" );
-        when ( wks.validateFileMask ( Mockito.anyString () ) ).thenReturn ( expectedValidation );
+        given ( wks.validateFileMask ( anyString () ) ).willReturn ( expectedValidation );
         doReturn ( wks ).when ( prj ).getSomeWorkspace ();
 
         DescriptorImpl descriptor = new DescriptorImpl ();

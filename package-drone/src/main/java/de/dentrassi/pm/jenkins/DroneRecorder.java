@@ -322,27 +322,25 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     @Override
     public void perform ( final Run<?, ?> run, final FilePath workspace, final Launcher launcher, final TaskListener taskListener ) throws InterruptedException, IOException
     {
-        final LoggerListenerWrapper listener = new LoggerListenerWrapper ( taskListener );
-
+        final LoggerListenerWrapper listener = new LoggerListenerWrapper ( taskListener, true ); // TODO move debug as advanced option
         final EnvVars env = run.getEnvironment ( taskListener );
-        this.serverUrl = Util.replaceMacro ( this.serverUrl, env );
-        this.channel = Util.replaceMacro ( this.channel, env );
-        this.deployKey = Util.replaceMacro ( this.deployKey, env );
 
-        if ( !validateStart ( listener ) )
+        // do not change constructor values because we can reuse the same step instance with different Environment variables (for example in pipeline)
+        final String serverURL = Util.replaceMacro ( this.serverUrl, env );
+        final String channel = Util.replaceMacro ( this.channel, env );
+        final String deployKey = Util.replaceMacro ( this.deployKey, env );
+        final String artifacts = env.expand ( this.artifacts );
+
+        if ( !validateStart ( serverURL, channel, deployKey, artifacts, listener ) )
         {
             run.setResult ( Result.FAILURE );
             return;
         }
 
-        listener.getLogger ().println ( Messages.DroneRecorder_serverUrl ( this.serverUrl ) );
-
-        final String artifacts = env.expand ( this.artifacts );
-
-        final ServerData serverData = new ServerData ( this.serverUrl, this.channel, this.deployKey, this.uploadV3 );
+        final ServerData serverData = new ServerData ( serverURL, channel, deployKey, uploadV3 );
+        listener.info ( Messages.DroneRecorder_serverUrl ( serverURL ) );
 
         final FileCallable<UploaderResult> uploader = createCallable ( run, listener, artifacts, serverData );
-
         try
         {
             UploaderResult result = workspace.act ( uploader );
@@ -368,7 +366,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         catch ( IOException e )
         {
             Util.displayIOException ( e, listener );
-            e.printStackTrace ( listener.error ( Messages.DroneRecorder_failedToUpload ( this.artifacts ) ) );
+            e.printStackTrace ( listener.error ( Messages.DroneRecorder_failedToUpload ( artifacts ) ) );
             run.setResult ( Result.FAILURE );
         }
     }
@@ -381,27 +379,27 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     /*
      * Validates the input parameters
      */
-    private boolean validateStart ( final TaskListener listener )
+    private boolean validateStart ( final String serverURL, final String channel, final String deployKey, final String artifacts, final TaskListener listener )
     {
-        if ( this.artifacts == null )
+        if ( artifacts == null || artifacts.isEmpty () )
         {
             listener.fatalError ( Messages.DroneRecorder_noIncludes () );
             return false;
         }
 
-        if ( this.serverUrl == null || this.serverUrl.isEmpty () )
+        if ( serverURL == null || serverURL.isEmpty () )
         {
             listener.fatalError ( Messages.DroneRecorder_emptyServerUrl () );
             return false;
         }
 
-        if ( this.channel == null || this.channel.isEmpty () )
+        if ( channel == null || channel.isEmpty () )
         {
             listener.fatalError ( Messages.DroneRecorder_emptyChannel () );
             return false;
         }
 
-        if ( this.deployKey == null || this.deployKey.isEmpty () )
+        if ( deployKey == null || deployKey.isEmpty () )
         {
             listener.fatalError ( Messages.DroneRecorder_emptyDeployKey () );
             return false;
@@ -423,13 +421,13 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
         private final RunData runData;
 
-        private final TaskListener listener;
+        private final LoggerListenerWrapper listener;
 
         private final boolean stripPath;
 
         private final ServerData serverData;
 
-        UploadFiles ( final String includes, final String excludes, final boolean defaultExcludes, final boolean stripPath, final ServerData serverData, final Run<?, ?> run, final TaskListener listener )
+        UploadFiles ( final String includes, final String excludes, final boolean defaultExcludes, final boolean stripPath, final ServerData serverData, final Run<?, ?> run, final LoggerListenerWrapper listener )
         {
             this.includes = includes;
             this.excludes = excludes;
@@ -437,7 +435,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
             this.stripPath = stripPath;
             this.serverData = serverData;
             this.runData = new RunData ( run );
-            this.listener = new LoggerListenerWrapper ( listener );
+            this.listener = listener;
         }
 
         @Override
