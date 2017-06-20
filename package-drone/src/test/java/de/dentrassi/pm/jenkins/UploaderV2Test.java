@@ -55,6 +55,55 @@ public class UploaderV2Test
     public TemporaryFolder folder = new TemporaryFolder ();
 
     @Test
+    public void verify_put_request () throws Exception
+    {
+        ServerData serverData = new ServerData ( "http://www.pdrone.org", "channel1", "secret", false );
+
+        RunData runData = getRunData ();
+
+        LoggerListenerWrapper listener = mock ( LoggerListenerWrapper.class );
+        when ( listener.getLogger () ).thenReturn ( mock ( PrintStream.class ) );
+
+        // build uploader and mock its internal the http client
+        try ( UploaderV2 uploader = new UploaderV2 ( runData, listener, serverData ) )
+        {
+
+            uploader.addArtifact ( folder.newFile (), "f1" );
+            uploader.addArtifact ( folder.newFile (), "f2" );
+
+            DefaultHttpClient client = mock ( DefaultHttpClient.class );
+            given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 200 ) );
+            given ( client.getConnectionManager () ).willReturn ( mock ( ClientConnectionManager.class ) );
+
+            setMockClient ( uploader, client );
+
+            uploader.performUpload ();
+
+            ArgumentCaptor<HttpUriRequest> argument = ArgumentCaptor.forClass ( HttpUriRequest.class );
+            verify ( client, times ( 2 ) ).execute ( argument.capture () );
+
+            SimpleDateFormat sdf = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
+            sdf.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
+
+            for ( HttpUriRequest put : argument.getAllValues () )
+            {
+                URI host = new URI ( serverData.getServerURL () );
+                assertThat ( put.getURI ().getScheme (), CoreMatchers.is ( host.getScheme () ) );
+                assertThat ( put.getURI ().getHost (), CoreMatchers.is ( host.getHost () ) );
+                assertThat ( put.getURI ().getPort (), CoreMatchers.is ( -1 ) );
+                assertThat ( put.getURI ().getPath (), CoreMatchers.startsWith ( "/api/v2/upload/channel/" + serverData.getChannel () + "/f" ) );
+                assertThat ( put.getURI ().getQuery (), CoreMatchers.allOf ( //
+                        CoreMatchers.containsString ( "jenkins:timestamp=" + sdf.format ( runData.getTime () ).replace ( ' ', '+' ) ), //
+                        CoreMatchers.containsString ( "jenkins:buildUrl=http://localhost:8080/jenkins" ), //
+                        CoreMatchers.containsString ( "jenkins:jobName=test_job" ), //
+                        CoreMatchers.containsString ( "jenkins:buildNumber=1" ), //
+                        CoreMatchers.containsString ( "jenkins:buildId=test_job" ) ) );
+                assertThat ( put.getURI ().getFragment (), CoreMatchers.nullValue () );
+            }
+        }
+    }
+
+    @Test
     public void upload_succefully () throws Exception
     {
         ServerData serverData = new ServerData ( "http://www.pdrone.org", "channel1", "secret", false );
@@ -82,28 +131,6 @@ public class UploaderV2Test
             Map<String, String> uploadedArtifacts = uploader.getUploadedArtifacts ();
             assertThat ( uploadedArtifacts.keySet (), CoreMatchers.hasItems ( "f1Id", "f2Id" ) );
             assertThat ( uploadedArtifacts.values (), CoreMatchers.hasItems ( "f1", "f2" ) );
-
-            ArgumentCaptor<HttpUriRequest> argument = ArgumentCaptor.forClass ( HttpUriRequest.class );
-            verify ( client, times ( 2 ) ).execute ( argument.capture () );
-
-            SimpleDateFormat sdf = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
-            sdf.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
-
-            for ( HttpUriRequest put : argument.getAllValues () )
-            {
-                URI host = new URI ( serverData.getServerURL () );
-                assertThat ( put.getURI ().getScheme (), CoreMatchers.is ( host.getScheme () ) );
-                assertThat ( put.getURI ().getHost (), CoreMatchers.is ( host.getHost () ) );
-                assertThat ( put.getURI ().getPort (), CoreMatchers.is ( -1 ) );
-                assertThat ( put.getURI ().getPath (), CoreMatchers.startsWith ( "/api/v2/upload/channel/" + serverData.getChannel () + "/f" ) );
-                assertThat ( put.getURI ().getQuery (), CoreMatchers.allOf ( //
-                        CoreMatchers.containsString ( "jenkins:timestamp=" + sdf.format ( runData.getTime () ).replace ( ' ', '+' ) ), //
-                        CoreMatchers.containsString ( "jenkins:buildUrl=http://localhost:8080/jenkins" ), //
-                        CoreMatchers.containsString ( "jenkins:jobName=test_job" ), //
-                        CoreMatchers.containsString ( "jenkins:buildNumber=1" ), //
-                        CoreMatchers.containsString ( "jenkins:buildId=test_job" ) ) );
-                assertThat ( put.getURI ().getFragment (), CoreMatchers.nullValue () );
-            }
         }
     }
 
@@ -151,10 +178,10 @@ public class UploaderV2Test
         ReflectionUtils.setVariableValueInObject ( uploader, "client", client );
     }
 
-    private BasicHttpResponse getResponse ( String artifactId, int statusCode ) throws UnsupportedEncodingException
+    private BasicHttpResponse getResponse ( String payload, int statusCode ) throws UnsupportedEncodingException
     {
         BasicHttpResponse response = new BasicHttpResponse ( new BasicStatusLine ( new ProtocolVersion ( "HTTP", 1, 1 ), statusCode, EnglishReasonPhraseCatalog.INSTANCE.getReason ( statusCode, Locale.ENGLISH ) ) );
-        response.setEntity ( new StringEntity ( artifactId ) );
+        response.setEntity ( new StringEntity ( payload ) );
         return response;
     }
 
