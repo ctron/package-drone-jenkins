@@ -9,4 +9,4 @@ before_script:
 - cd package-drone
 
 script:
-- mvn test coveralls:report -P enable-jacoco -B
+- mvn install coveralls:report -P enable-jacoco -B

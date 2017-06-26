@@ -17,6 +17,7 @@ import java.io.PrintWriter;
 import hudson.console.ConsoleNote;
 import hudson.model.TaskListener;
 
+// TODO transforms this class to an implementation of logger that delegates to a TaskListener
 public class LoggerListenerWrapper implements TaskListener
 {
     private static final long serialVersionUID = -4032502466191759599L;
@@ -55,58 +56,42 @@ public class LoggerListenerWrapper implements TaskListener
         delegate.hyperlink ( url, text );
     }
 
-    public PrintWriter debug ( String msg )
+    public void debug ( String msg )
     {
-        PrintStream logger = delegate.getLogger ();
         if ( debug )
         {
-            logger.println ( msg );
+            delegate.getLogger ().println ( msg );
         }
-
-        return new PrintWriter ( logger );
     }
 
-    public PrintWriter debug ( String format, Object... args )
+    public void debug ( String format, Object... args )
     {
-        PrintStream logger = delegate.getLogger ();
         if ( debug )
         {
-            logger.println ( String.format ( format, args ) );
+            debug ( String.format ( format, args ) );
         }
-
-        return new PrintWriter ( logger );
     }
 
-    public PrintWriter info ( String msg )
+    public void info ( String msg )
+    {
+        delegate.getLogger ().println ( msg );
+    }
+
+    public void info ( String format, Object... args )
+    {
+        info ( String.format ( format, args ) );
+    }
+
+    public void warning ( String msg )
     {
         PrintStream logger = delegate.getLogger ();
+        logger.print ( "WARN: " );
         logger.println ( msg );
-
-        return new PrintWriter ( logger );
     }
 
-    public PrintWriter info ( String format, Object... args )
+    public void warning ( String format, Object... args )
     {
-        PrintStream logger = delegate.getLogger ();
-        logger.println ( String.format ( format, args ) );
-
-        return new PrintWriter ( logger );
-    }
-
-    public PrintWriter warning ( String msg )
-    {
-        PrintStream logger = delegate.getLogger ();
-        logger.println ( "WARN: " + msg );
-
-        return new PrintWriter ( logger );
-    }
-
-    public PrintWriter warning ( String format, Object... args )
-    {
-        PrintStream logger = delegate.getLogger ();
-        logger.println ( "WARN: " + String.format ( format, args ) );
-
-        return new PrintWriter ( logger );
+        warning ( String.format ( format, args ) );
     }
 
     @Override
