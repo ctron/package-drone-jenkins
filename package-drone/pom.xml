@@ -70,11 +70,11 @@
 			<artifactId>symbol-annotation</artifactId>
 			<version>1.5</version>
 		</dependency>
-		<dependency>
-			<groupId>org.jenkins-ci.plugins</groupId>
-			<artifactId>credentials</artifactId>
-			<version>1.9.4</version>
-		</dependency>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>plain-credentials</artifactId>
+            <version>1.4</version>
+        </dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpclient</artifactId>
@@ -92,6 +92,20 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.jenkins-ci.tools</groupId>
+                <artifactId>maven-hpi-plugin</artifactId>
+                <configuration>
+                    <loggers>
+                        <org.jenkinsci.plugins.plaincredentials>FINE</org.jenkinsci.plugins.plaincredentials>
+                    </loggers>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 	<profiles>
 		<profile>
