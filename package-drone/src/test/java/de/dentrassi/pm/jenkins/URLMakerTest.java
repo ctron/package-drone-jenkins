@@ -17,7 +17,7 @@ import static org.junit.Assert.assertThat;
 
 import org.junit.Test;
 
-public class URLMarkerTest
+public class URLMakerTest
 {
 
     @Test
@@ -38,6 +38,16 @@ public class URLMarkerTest
 
         url = URLMaker.make ( "http://localhost/pdrone/", "my-channel", "artifactId" );
         assertThat ( url, not ( containsString ( "pdrone//" ) ) );
+    }
+
+    @Test
+    public void test_server_url ()
+    {
+        String url = URLMaker.make ( "http://localhost/" );
+        assertThat ( url, equalTo ( "http://localhost" ) );
+
+        url = URLMaker.make ( "http://localhost/pdrone/" );
+        assertThat ( url, equalTo ( "http://localhost/pdrone" ) );
     }
 
     @Test

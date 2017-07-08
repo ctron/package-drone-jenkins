@@ -19,6 +19,8 @@ import org.apache.commons.httpclient.URIException;
 import org.apache.commons.httpclient.util.URIUtil;
 import org.apache.http.client.utils.URIBuilder;
 
+import hudson.Util;
+
 /**
  * This is a URL build specific for the package drone server.
  */
@@ -63,12 +65,9 @@ public final class URLMaker
     {
         try
         {
-            URIBuilder builder = new URIBuilder ( serverURL );
+            URIBuilder builder = new URIBuilder ( make ( serverURL ) );
+            builder.setPath ( builder.getPath () + "/channel/" + URIUtil.encodeWithinPath ( channelId ) );
 
-            String contextRoot = builder.getPath ();
-            contextRoot = contextRoot.endsWith ( "/" ) ? contextRoot.substring ( 0, contextRoot.length () - 1 ) : contextRoot;
-
-            builder.setPath ( contextRoot + "/channel/" + URIUtil.encodeWithinPath ( channelId ) );
             if ( artifactId != null )
             {
                 builder.setPath ( builder.getPath () + "/artifacts/" + URIUtil.encodeWithinPath ( artifactId ) + "/view" );
@@ -76,6 +75,33 @@ public final class URLMaker
             return builder.build ().toString ();
         }
         catch ( final URIException | URISyntaxException e )
+        {
+            throw new RuntimeException ( e );
+        }
+    }
+
+    /**
+     * Returns the package drone server URL.
+     *
+     * @param serverURL
+     *            the URL including the context root of the package drone
+     *            server.
+     * @return the URL of the package drone server.
+     */
+    @Nonnull
+    public static String make ( @Nonnull final String serverURL )
+    {
+        try
+        {
+            URIBuilder builder = new URIBuilder ( serverURL );
+
+            String contextRoot = builder.getPath ();
+            contextRoot = contextRoot.endsWith ( "/" ) ? contextRoot.substring ( 0, contextRoot.length () - 1 ) : contextRoot;
+
+            builder.setPath ( Util.fixEmptyAndTrim ( contextRoot ) );
+            return builder.build ().toString ();
+        }
+        catch ( final URISyntaxException e )
         {
             throw new RuntimeException ( e );
         }

@@ -25,10 +25,10 @@ import java.util.TimeZone;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.ProtocolVersion;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.message.BasicStatusLine;
 import org.codehaus.plexus.util.ReflectionUtils;
@@ -61,15 +61,16 @@ public class UploaderV3Test
         LoggerListenerWrapper listener = mock ( LoggerListenerWrapper.class );
         when ( listener.getLogger () ).thenReturn ( mock ( PrintStream.class ) );
 
-        // build uploader and mock its internal the http client
-        UploaderV3 uploader = new UploaderV3 ( runData, listener, serverData );
-
-        DefaultHttpClient client = mock ( DefaultHttpClient.class );
+        HttpClient client = mock ( HttpClient.class );
         given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( new UploadResult (), 200 ) );
 
-        setMockClient ( uploader, client );
+        // build uploader and mock its internal the http client
+        try ( UploaderV3 uploader = new UploaderV3 ( runData, listener, serverData ) )
+        {
+            setMockClient ( uploader, client );
 
-        uploader.performUpload ();
+            uploader.performUpload ();
+        }
 
         ArgumentCaptor<HttpUriRequest> argument = ArgumentCaptor.forClass ( HttpUriRequest.class );
         verify ( client ).execute ( argument.capture () );
@@ -100,23 +101,28 @@ public class UploaderV3Test
         LoggerListenerWrapper listener = mock ( LoggerListenerWrapper.class );
         when ( listener.getLogger () ).thenReturn ( mock ( PrintStream.class ) );
 
-        // build uploader and mock its internal the http client
-        UploaderV3 uploader = new UploaderV3 ( runData, listener, serverData );
-
         Map<String, String> artifacts = new HashMap<> ();
         artifacts.put ( "f1", "f1Id" );
         artifacts.put ( "f2", "f2Id" );
 
-        UploadResult payload = createHTTPResult ( uploader, serverData.getChannel (), artifacts );
+        Map<String, String> uploadedArtifacts = null;
 
-        DefaultHttpClient client = mock ( DefaultHttpClient.class );
-        given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( payload, 200 ) );
+        // build uploader and mock its internal the http client
+        try ( UploaderV3 uploader = new UploaderV3 ( runData, listener, serverData ) )
+        {
 
-        setMockClient ( uploader, client );
+            UploadResult payload = createHTTPResult ( uploader, serverData.getChannel (), artifacts );
 
-        uploader.performUpload ();
+            HttpClient client = mock ( HttpClient.class );
+            given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( payload, 200 ) );
 
-        Map<String, String> uploadedArtifacts = uploader.getUploadedArtifacts ();
+            setMockClient ( uploader, client );
+
+            uploader.performUpload ();
+
+            uploadedArtifacts = uploader.getUploadedArtifacts ();
+        }
+
         assertThat ( uploadedArtifacts.keySet (), CoreMatchers.hasItems ( artifacts.values ().toArray ( new String[0] ) ) );
         assertThat ( uploadedArtifacts.values (), CoreMatchers.hasItems ( artifacts.keySet ().toArray ( new String[0] ) ) );
     }
@@ -150,17 +156,15 @@ public class UploaderV3Test
         when ( listener.getLogger () ).thenReturn ( mock ( PrintStream.class ) );
 
         // build uploader and mock its internal the http client
-        UploaderV3 uploader = new UploaderV3 ( runData, listener, serverData );
-
-        uploader.addArtifact ( folder.newFile (), "f1" );
-        uploader.addArtifact ( folder.newFolder (), "f2" );
-
-        DefaultHttpClient client = mock ( DefaultHttpClient.class );
-
-        setMockClient ( uploader, client );
-
-        try
+        try ( UploaderV3 uploader = new UploaderV3 ( runData, listener, serverData ) )
         {
+            uploader.addArtifact ( folder.newFile (), "f1" );
+            uploader.addArtifact ( folder.newFolder (), "f2" );
+
+            HttpClient client = mock ( HttpClient.class );
+
+            setMockClient ( uploader, client );
+
             uploader.performUpload ();
             fail ( "expected a IOException during creation of archive" );
         }
@@ -180,34 +184,35 @@ public class UploaderV3Test
         LoggerListenerWrapper listener = mock ( LoggerListenerWrapper.class );
         when ( listener.getLogger () ).thenReturn ( mock ( PrintStream.class ) );
 
-        // build uploader and mock its internal the http client
-        UploaderV3 uploader = new UploaderV3 ( runData, listener, serverData );
-
         Map<String, String> artifacts = new HashMap<> ();
         artifacts.put ( "f1", "f1Id" );
         artifacts.put ( "f2", "f1Id" );
         UploadError payload = new UploadError ( "this is a test" );
 
-        DefaultHttpClient client = mock ( DefaultHttpClient.class );
+        HttpClient client = mock ( HttpClient.class );
         given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( payload, 500 ) );
 
-        setMockClient ( uploader, client );
-
-        try
+        // build uploader and mock its internal the http client
+        try ( UploaderV3 uploader = new UploaderV3 ( runData, listener, serverData ) )
         {
-            uploader.performUpload ();
-            fail ( "expected a IOException during upload of file f2" );
-        }
-        catch ( IOException e )
-        {
-            assertThat ( e.getMessage (), CoreMatchers.containsString ( payload.getMessage () ) );
-        }
+            setMockClient ( uploader, client );
 
-        Map<String, String> uploadedArtifacts = uploader.getUploadedArtifacts ();
-        assertTrue ( "expected no uploaded artifacts with success", uploadedArtifacts.isEmpty () );
+            try
+            {
+                uploader.performUpload ();
+                fail ( "expected a IOException during upload of file f2" );
+            }
+            catch ( IOException e )
+            {
+                assertThat ( e.getMessage (), CoreMatchers.containsString ( payload.getMessage () ) );
+            }
+
+            Map<String, String> uploadedArtifacts = uploader.getUploadedArtifacts ();
+            assertTrue ( "expected no uploaded artifacts with success", uploadedArtifacts.isEmpty () );
+        }
     }
 
-    private void setMockClient ( Uploader uploader, DefaultHttpClient client ) throws IllegalAccessException
+    private void setMockClient ( Uploader uploader, HttpClient client ) throws IllegalAccessException
     {
         Field clientField = ReflectionUtils.getFieldByNameIncludingSuperclasses ( "client", uploader.getClass () );
         FieldUtils.removeFinalModifier ( clientField, true );
