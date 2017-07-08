@@ -25,10 +25,10 @@ import java.util.TimeZone;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.ProtocolVersion;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.message.BasicStatusLine;
 import org.codehaus.plexus.util.ReflectionUtils;
@@ -64,7 +64,7 @@ public class UploaderV3Test
         // build uploader and mock its internal the http client
         UploaderV3 uploader = new UploaderV3 ( runData, listener, serverData );
 
-        DefaultHttpClient client = mock ( DefaultHttpClient.class );
+        HttpClient client = mock ( HttpClient.class );
         given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( new UploadResult (), 200 ) );
 
         setMockClient ( uploader, client );
@@ -109,7 +109,7 @@ public class UploaderV3Test
 
         UploadResult payload = createHTTPResult ( uploader, serverData.getChannel (), artifacts );
 
-        DefaultHttpClient client = mock ( DefaultHttpClient.class );
+        HttpClient client = mock ( HttpClient.class );
         given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( payload, 200 ) );
 
         setMockClient ( uploader, client );
@@ -155,7 +155,7 @@ public class UploaderV3Test
         uploader.addArtifact ( folder.newFile (), "f1" );
         uploader.addArtifact ( folder.newFolder (), "f2" );
 
-        DefaultHttpClient client = mock ( DefaultHttpClient.class );
+        HttpClient client = mock ( HttpClient.class );
 
         setMockClient ( uploader, client );
 
@@ -188,7 +188,7 @@ public class UploaderV3Test
         artifacts.put ( "f2", "f1Id" );
         UploadError payload = new UploadError ( "this is a test" );
 
-        DefaultHttpClient client = mock ( DefaultHttpClient.class );
+        HttpClient client = mock ( HttpClient.class );
         given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( payload, 500 ) );
 
         setMockClient ( uploader, client );
@@ -207,7 +207,7 @@ public class UploaderV3Test
         assertTrue ( "expected no uploaded artifacts with success", uploadedArtifacts.isEmpty () );
     }
 
-    private void setMockClient ( Uploader uploader, DefaultHttpClient client ) throws IllegalAccessException
+    private void setMockClient ( Uploader uploader, HttpClient client ) throws IllegalAccessException
     {
         Field clientField = ReflectionUtils.getFieldByNameIncludingSuperclasses ( "client", uploader.getClass () );
         FieldUtils.removeFinalModifier ( clientField, true );

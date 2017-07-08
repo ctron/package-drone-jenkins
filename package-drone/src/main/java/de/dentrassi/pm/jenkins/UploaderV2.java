@@ -25,9 +25,10 @@ import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.utils.HttpClientUtils;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.FileEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.HttpClients;
 
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 
@@ -42,7 +43,7 @@ public class UploaderV2 extends AbstractUploader
     public UploaderV2 ( final RunData runData, final LoggerListenerWrapper listener, final ServerData serverData )
     {
         super ( runData );
-        this.client = new DefaultHttpClient ();
+        this.client = HttpClients.createDefault ();
         this.listener = listener;
         this.serverData = serverData;
 
@@ -139,9 +140,7 @@ public class UploaderV2 extends AbstractUploader
     @Override
     public void close ()
     {
-        if ( this.client != null )
-        {
-            this.client.getConnectionManager ().shutdown ();
-        }
+        HttpClientUtils.closeQuietly ( this.client );
     }
+
 }

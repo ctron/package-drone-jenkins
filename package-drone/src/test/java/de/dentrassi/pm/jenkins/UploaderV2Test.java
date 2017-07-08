@@ -32,11 +32,10 @@ import java.util.TimeZone;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.http.ProtocolVersion;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.message.BasicStatusLine;
 import org.codehaus.plexus.util.ReflectionUtils;
@@ -71,9 +70,8 @@ public class UploaderV2Test
             uploader.addArtifact ( folder.newFile (), "f1" );
             uploader.addArtifact ( folder.newFile (), "f2" );
 
-            DefaultHttpClient client = mock ( DefaultHttpClient.class );
+            HttpClient client = mock ( HttpClient.class );
             given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 200 ) );
-            given ( client.getConnectionManager () ).willReturn ( mock ( ClientConnectionManager.class ) );
 
             setMockClient ( uploader, client );
 
@@ -120,9 +118,8 @@ public class UploaderV2Test
             uploader.addArtifact ( folder.newFile (), "f1" );
             uploader.addArtifact ( folder.newFile (), "f2" );
 
-            DefaultHttpClient client = mock ( DefaultHttpClient.class );
+            HttpClient client = mock ( HttpClient.class );
             given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 200 ) );
-            given ( client.getConnectionManager () ).willReturn ( mock ( ClientConnectionManager.class ) );
 
             setMockClient ( uploader, client );
 
@@ -150,9 +147,8 @@ public class UploaderV2Test
             uploader.addArtifact ( folder.newFile (), "f1" );
             uploader.addArtifact ( folder.newFile (), "f2" );
 
-            DefaultHttpClient client = mock ( DefaultHttpClient.class );
+            HttpClient client = mock ( HttpClient.class );
             given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 500 ) );
-            given ( client.getConnectionManager () ).willReturn ( mock ( ClientConnectionManager.class ) );
 
             setMockClient ( uploader, client );
             try
@@ -171,7 +167,7 @@ public class UploaderV2Test
         }
     }
 
-    private void setMockClient ( UploaderV2 uploader, DefaultHttpClient client ) throws IllegalAccessException
+    private void setMockClient ( UploaderV2 uploader, HttpClient client ) throws IllegalAccessException
     {
         Field clientField = ReflectionUtils.getFieldByNameIncludingSuperclasses ( "client", uploader.getClass () );
         FieldUtils.removeFinalModifier ( clientField, true );

@@ -36,9 +36,10 @@ import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.utils.HttpClientUtils;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.FileEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.eclipse.packagedrone.repo.api.transfer.TransferArchiveWriter;
 import org.eclipse.packagedrone.repo.api.upload.ArtifactInformation;
 import org.eclipse.packagedrone.repo.api.upload.RejectedArtifact;
@@ -61,7 +62,7 @@ public class UploaderV3 extends AbstractUploader
     public UploaderV3 ( final RunData runData, final LoggerListenerWrapper listener, final ServerData serverData ) throws IOException
     {
         super(runData);
-        this.client = new DefaultHttpClient ();
+        this.client = HttpClients.createDefault ();
         this.listener = listener;
         this.serverData = serverData;
 
@@ -336,6 +337,12 @@ public class UploaderV3 extends AbstractUploader
         sb.append ( "</tbody></table>" );
 
         return new ExpandableDetailsNote ( String.format ( "Uploaded: %s, rejected: %s", result.getCreatedArtifacts ().size (), result.getRejectedArtifacts ().size () ), sb.toString () );
+    }
+
+    @Override
+    public void close () throws IOException
+    {
+        HttpClientUtils.closeQuietly ( client );
     }
 
 }
