@@ -12,72 +12,33 @@ package de.dentrassi.pm.jenkins;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.apache.commons.httpclient.URIException;
-import org.apache.commons.httpclient.util.URIUtil;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.utils.HttpClientUtils;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.entity.FileEntity;
-import org.apache.http.impl.client.HttpClients;
+import org.apache.commons.io.IOUtils;
 
+import de.dentrassi.pm.jenkins.client.ClientException;
+import de.dentrassi.pm.jenkins.client.PackageDroneClient;
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 
 public class UploaderV2 extends AbstractUploader
 {
-    private final HttpClient client;
-
     private final LoggerListenerWrapper listener;
 
     private final ServerData serverData;
 
+    private PackageDroneClient client;
+
     public UploaderV2 ( final RunData runData, final LoggerListenerWrapper listener, final ServerData serverData )
     {
         super ( runData );
-        this.client = HttpClients.createDefault ();
         this.listener = listener;
         this.serverData = serverData;
+        this.client = new PackageDroneClient ( serverData.getServerURL () );
 
         listener.info ( "Uploading using Package Drone V2 uploader" );
-    }
-
-    private URI makeUrl ( final String file ) throws IOException
-    {
-        final URI fullUri;
-        try
-        {
-
-            final URIBuilder b = new URIBuilder ( this.serverData.getServerURL () );
-
-            b.setUserInfo ( "deploy", this.serverData.getDeployKey () );
-
-            b.setPath ( b.getPath () + String.format ( "/api/v2/upload/channel/%s/%s", URIUtil.encodeWithinPath ( this.serverData.getChannel () ), file ) );
-
-            final Map<String, String> properties = new HashMap<> ();
-            fillProperties ( properties );
-
-            for ( final Map.Entry<String, String> entry : properties.entrySet () )
-            {
-                b.addParameter ( entry.getKey (), entry.getValue () );
-            }
-
-            fullUri = b.build ();
-
-        }
-        catch ( URISyntaxException e )
-        {
-            throw new URIException ( e.getReason () );
-        }
-        return fullUri;
     }
 
     /*
@@ -87,60 +48,40 @@ public class UploaderV2 extends AbstractUploader
     @Override
     public void performUpload () throws IOException
     {
+        Map<String, String> properties = new HashMap<> ();
+        fillProperties ( properties );
+
         Set<Entry<File, String>> entries = filesToUpload.entrySet ();
         for ( Entry<File, String> entry : entries )
         {
-            uploadArtifact ( entry.getKey (), entry.getValue () );
-        }
-    }
-
-    private void uploadArtifact ( final File file, final String filename ) throws IOException
-    {
-        final URI uri = makeUrl ( filename );
-        final HttpPut httpPut = new HttpPut ( uri );
-
-        httpPut.setEntity ( new FileEntity ( file ) );
-
-        final HttpResponse response = this.client.execute ( httpPut );
-        final HttpEntity resEntity = response.getEntity ();
-
-        if ( resEntity != null )
-        {
-            switch ( response.getStatusLine ().getStatusCode () )
+            File file = entry.getKey ();
+            String fileName = entry.getValue ();
+            try
             {
-                case 200:
-                    addUploadedArtifacts ( filename, resEntity );
-                    break;
-                default:
-                    addUploadFailure ( filename, response );
-                    break;
+                String artifactId = this.client.uploadArtifact ( serverData.getChannel (), serverData.getDeployKey (), file, fileName, properties );
+                addUploadedArtifacts ( fileName, artifactId );
+            }
+            catch ( ClientException e )
+            {
+                throw new IOException ( Messages.UploaderV2_failedToUpload ( fileName, e.getStatusCode (), e.getReason (), e.getMessage () ) );
             }
         }
     }
 
-    private void addUploadFailure ( final String fileName, final HttpResponse response ) throws IOException
+    private void addUploadedArtifacts ( final String fileName, final String artifactId ) throws IOException
     {
-        final String message = makeString ( response.getEntity () );
-
-        throw new IOException ( Messages.UploaderV2_failedToUpload ( fileName, response.getStatusLine ().getStatusCode (), response.getStatusLine ().getReasonPhrase (), message ) );
-    }
-
-    private void addUploadedArtifacts ( final String fileName, final HttpEntity resEntity ) throws IOException
-    {
-        final String artId = makeString ( resEntity );
-
-        uploadedArtifacts.put ( artId, fileName );
+        uploadedArtifacts.put ( artifactId, fileName );
 
         // TODO improve how use the logger
-        this.listener.getLogger ().print (  "Uploaded " );
-        this.listener.hyperlink ( URLMaker.make ( serverData.getServerURL (), serverData.getChannel (), artId ), fileName);
+        this.listener.getLogger ().print ( "Uploaded " );
+        this.listener.hyperlink ( URLMaker.make ( serverData.getServerURL (), serverData.getChannel (), artifactId ), fileName );
         this.listener.info ( " to channel %s", serverData.getChannel () );
     }
 
     @Override
-    public void close ()
+    public void close () throws IOException
     {
-        HttpClientUtils.closeQuietly ( this.client );
+        IOUtils.closeQuietly ( client );
     }
 
 }

@@ -21,6 +21,7 @@ import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.cloudbees.plugins.credentials.domains.HostnameRequirement;
 
+import de.dentrassi.pm.jenkins.client.ClientException;
 import de.dentrassi.pm.jenkins.client.PackageDroneClient;
 import hudson.Extension;
 import hudson.Util;
@@ -160,6 +161,10 @@ public class PackageDroneInstallation extends AbstractDescribableImpl<PackageDro
                         }
                         listBox.add ( new Option ( name, channel.getId () ) );
                     }
+                }
+                catch ( ClientException e )
+                {
+                    // do nothing a validation message should validate server URL
                 }
             }
 

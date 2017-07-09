@@ -18,8 +18,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,32 +26,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.httpclient.URIException;
-import org.apache.commons.httpclient.util.URIUtil;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHeaders;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.utils.HttpClientUtils;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.entity.FileEntity;
-import org.apache.http.impl.client.HttpClients;
+import org.apache.commons.io.IOUtils;
 import org.eclipse.packagedrone.repo.api.transfer.TransferArchiveWriter;
 import org.eclipse.packagedrone.repo.api.upload.ArtifactInformation;
 import org.eclipse.packagedrone.repo.api.upload.RejectedArtifact;
-import org.eclipse.packagedrone.repo.api.upload.UploadError;
 import org.eclipse.packagedrone.repo.api.upload.UploadResult;
 
-import com.google.gson.GsonBuilder;
-
+import de.dentrassi.pm.jenkins.client.ClientException;
+import de.dentrassi.pm.jenkins.client.PackageDroneClient;
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 import hudson.console.ExpandableDetailsNote;
 
 public class UploaderV3 extends AbstractUploader
 {
-    private final HttpClient client;
+    private final PackageDroneClient client;
 
     private final LoggerListenerWrapper listener;
 
@@ -61,8 +47,8 @@ public class UploaderV3 extends AbstractUploader
 
     public UploaderV3 ( final RunData runData, final LoggerListenerWrapper listener, final ServerData serverData ) throws IOException
     {
-        super(runData);
-        this.client = HttpClients.createDefault ();
+        super ( runData );
+        this.client = new PackageDroneClient ( serverData.getServerURL () );
         this.listener = listener;
         this.serverData = serverData;
 
@@ -79,74 +65,28 @@ public class UploaderV3 extends AbstractUploader
         File archiveFile = null;
         try
         {
-            final URI uri = makeUrl ();
-
-            this.listener.debug ( "API endpoint: " + uri.toString () );
-
-            final HttpPut httpPut = new HttpPut ( uri );
-
-            final String encodedAuth = Base64.encodeBase64String ( ( "deploy:" + this.serverData.getDeployKey () ).getBytes ( "ISO-8859-1" ) );
-            httpPut.setHeader ( HttpHeaders.AUTHORIZATION, "Basic " + encodedAuth );
-
             // constructs the archive only when is needed
             archiveFile = createTransferArchive ();
-            httpPut.setEntity ( new FileEntity ( archiveFile ) );
 
-            final HttpResponse response = this.client.execute ( httpPut );
-            final HttpEntity resEntity = response.getEntity ();
-
-            this.listener.debug ( "Call returned: " + response.getStatusLine () );
-
-            if ( resEntity != null )
+            try
             {
-                switch ( response.getStatusLine ().getStatusCode () )
+                UploadResult result = client.uploadArtifactV3 ( serverData.getChannel (), serverData.getDeployKey (), archiveFile );
+                processUploadResult ( result );
+            }
+            catch ( ClientException e )
+            {
+                String errorMessage = Messages.UploaderV3_failedToUpload ( e.getReason () );
+                if ( e.getMessage () != null )
                 {
-                    case 200:
-                        processUploadResult ( makeString ( resEntity ) );
-                        break;
-                    case 404:
-                        throw new IOException ( Messages.UploaderV3_failedToFindEndpoint () );
-                    default:
-                        String errorMessage = Messages.UploaderV3_failedToUpload ( response.getStatusLine () );
-                        String httpResponseErrorMessage = getErrorMessage ( response );
-                        if ( httpResponseErrorMessage != null )
-                        {
-                            errorMessage += "\n" + httpResponseErrorMessage;
-                        }
-                        throw new IOException ( errorMessage );
+                    errorMessage += "\n" + e.getMessage ();
                 }
+                throw new IOException ( errorMessage );
             }
-            else
-            {
-                this.listener.error ( "Did not receive a result" );
-            }
-        }
-        catch ( final URISyntaxException e )
-        {
-            throw new IOException ( "Upload URL syntax error: " + e.getMessage (), e );
         }
         finally
         {
             deleteFile ( archiveFile );
         }
-    }
-
-    private URI makeUrl () throws URISyntaxException, URIException
-    {
-        final URI fullUri;
-        try
-        {
-            final URIBuilder builder = new URIBuilder ( this.serverData.getServerURL () );
-
-            builder.setPath ( String.format ( "%s/api/v3/upload/archive/channel/%s", builder.getPath (), URIUtil.encodeWithinPath ( this.serverData.getChannel () ) ) );
-
-            fullUri = builder.build ();
-        }
-        catch ( URISyntaxException e )
-        {
-            throw new URIException ( e.getReason () );
-        }
-        return fullUri;
     }
 
     private File createTransferArchive () throws IOException
@@ -182,29 +122,10 @@ public class UploaderV3 extends AbstractUploader
         }
     }
 
-    private String getErrorMessage ( final HttpResponse response ) throws IOException
-    {
-        final HttpEntity entity = response.getEntity ();
-        if ( entity.getContentType () == null || !entity.getContentType ().getValue ().equals ( "application/json" ) )
-        {
-            return null;
-        }
-
-        final UploadError error = new GsonBuilder ().create ().fromJson ( makeString ( entity ), UploadError.class );
-        if ( error == null )
-        {
-            return null;
-        }
-
-        return error.getMessage ();
-    }
-
-    private void processUploadResult ( final String string )
+    private void processUploadResult ( final UploadResult result )
     {
         try
         {
-            final UploadResult result = new GsonBuilder ().create ().fromJson ( string, UploadResult.class );
-
             this.listener.getLogger ().print ( "Uploaded to chanel: " );
             this.listener.hyperlink ( URLMaker.make ( this.serverData.getServerURL (), this.serverData.getChannel () ), this.serverData.getChannel () );
             this.listener.getLogger ().println ();
@@ -342,7 +263,7 @@ public class UploaderV3 extends AbstractUploader
     @Override
     public void close () throws IOException
     {
-        HttpClientUtils.closeQuietly ( client );
+        IOUtils.closeQuietly ( client );
     }
 
 }
