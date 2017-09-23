@@ -54,7 +54,7 @@ public class BuildData implements Action, Serializable, Cloneable, ProminentProj
     @Override
     public String getUrlName ()
     {
-        return URLMaker.make ( this.serverUrl, this.channel );
+        return URLMaker.make ( this.serverUrl, this.channel ) + "/view";
     }
 
     @Exported

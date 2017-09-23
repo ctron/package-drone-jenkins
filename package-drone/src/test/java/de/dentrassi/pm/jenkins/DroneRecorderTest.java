@@ -183,7 +183,7 @@ public class DroneRecorderTest
         Assert.assertThat ( buildData, CoreMatchers.notNullValue () );
         Assert.assertThat ( buildData.getIconFileName (), CoreMatchers.is ( "/plugin/package-drone/images/pdrone-32x32.png" ) );
         Assert.assertThat ( buildData.getDisplayName (), CoreMatchers.is ( Messages.BuildData_displayName () ) );
-        Assert.assertThat ( buildData.getUrlName (), CoreMatchers.is ( URLMaker.make ( serverURL, channel ) ) );
+        Assert.assertThat ( buildData.getUrlName (), CoreMatchers.is ( URLMaker.make ( serverURL, channel ) + "/view" ) );
         Assert.assertThat ( buildData.getServerUrl (), CoreMatchers.is ( serverURL ) );
         Assert.assertThat ( buildData.getChannel (), CoreMatchers.is ( channel ) );
 
