@@ -95,6 +95,15 @@ public class DroneRecorderValidatorTest
     }
 
     @Test
+    public void test_server_url_ok () throws Exception
+    {
+        DescriptorImpl descriptor = new DescriptorImpl ();
+
+        FormValidation result = descriptor.doCheckServerUrl ( "http://acme.com" );
+        assertThat ( result.kind, is ( Kind.OK ) );
+    }
+
+    @Test
     public void test_invalid_credentials () throws Exception
     {
         FreeStyleProject prj = mock ( FreeStyleProject.class );
