@@ -14,13 +14,18 @@ import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.CoreMatchers.startsWith;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.*;
 
 import org.junit.Test;
 
 import de.dentrassi.pm.jenkins.DroneRecorder.DescriptorImpl;
 import hudson.FilePath;
 import hudson.model.FreeStyleProject;
+import hudson.model.Item;
+import hudson.security.Permission;
 import hudson.util.FormValidation;
 import hudson.util.FormValidation.Kind;
 
@@ -87,6 +92,46 @@ public class DroneRecorderValidatorTest
         FormValidation result = descriptor.doCheckServerUrl ( "hpp://acme.com/root" );
         assertThat ( result.kind, is ( Kind.ERROR ) );
         assertThat ( result.getMessage (), startsWith ( Messages.DroneRecorder_DescriptorImpl_invalidServerUrl ( "" ) ) );
+    }
+
+    @Test
+    public void test_invalid_credentials () throws Exception
+    {
+        FreeStyleProject prj = mock ( FreeStyleProject.class );
+        when ( prj.hasPermission ( isA ( Permission.class ) ) ).thenReturn ( true );
+
+        DescriptorImpl descriptor = mock ( DescriptorImpl.class );
+        when ( descriptor.doCheckCredentialsId ( any ( Item.class ), (String)any (), anyString () ) ).thenCallRealMethod ();
+
+        String credentialsId = "secret";
+        String serverURL = "http://acme.com";
+
+        FormValidation result = descriptor.doCheckCredentialsId ( prj, credentialsId, serverURL );
+        assertThat ( result.kind, is ( Kind.ERROR ) );
+        assertThat ( result.getMessage (), is ( Messages.DroneRecorder_DescriptorImpl_invalidCredentialsId () ) );
+
+        when ( prj.hasPermission ( isA ( Permission.class ) ) ).thenReturn ( false );
+        result = descriptor.doCheckCredentialsId ( prj, credentialsId, serverURL );
+        assertThat ( result.kind, is ( Kind.OK ) );
+    }
+
+    @Test
+    public void test_empty_credentials () throws Exception
+    {
+        FreeStyleProject prj = mock ( FreeStyleProject.class );
+        when ( prj.hasPermission ( isA ( Permission.class ) ) ).thenReturn ( true );
+
+        DescriptorImpl descriptor = mock ( DescriptorImpl.class );
+        when ( descriptor.doCheckCredentialsId ( any ( Item.class ), (String)any (), anyString () ) ).thenCallRealMethod ();
+
+        String serverURL = "http://acme.com";
+
+        FormValidation result = descriptor.doCheckCredentialsId ( prj, "", serverURL );
+        assertThat ( result.kind, is ( Kind.WARNING ) );
+        assertThat ( result.getMessage (), is ( Messages.DroneRecorder_DescriptorImpl_emptyCredentialsId () ) );
+        result = descriptor.doCheckCredentialsId ( prj, null, serverURL );
+        assertThat ( result.kind, is ( Kind.WARNING ) );
+        assertThat ( result.getMessage (), is ( Messages.DroneRecorder_DescriptorImpl_emptyCredentialsId () ) );
     }
 
 }

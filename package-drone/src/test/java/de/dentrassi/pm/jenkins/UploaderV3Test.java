@@ -31,7 +31,6 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.message.BasicStatusLine;
-import org.codehaus.plexus.util.ReflectionUtils;
 import org.eclipse.packagedrone.repo.api.upload.ArtifactInformation;
 import org.eclipse.packagedrone.repo.api.upload.UploadError;
 import org.eclipse.packagedrone.repo.api.upload.UploadResult;
@@ -44,6 +43,7 @@ import org.mockito.ArgumentCaptor;
 import com.google.gson.Gson;
 
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
+import hudson.util.ReflectionUtils;
 
 public class UploaderV3Test
 {
@@ -214,9 +214,10 @@ public class UploaderV3Test
 
     private void setMockClient ( Uploader uploader, HttpClient client ) throws IllegalAccessException
     {
-        Field clientField = ReflectionUtils.getFieldByNameIncludingSuperclasses ( "client", uploader.getClass () );
+        Field clientField = ReflectionUtils.findField ( uploader.getClass (), "client" );
+        ReflectionUtils.makeAccessible ( clientField );
         FieldUtils.removeFinalModifier ( clientField, true );
-        ReflectionUtils.setVariableValueInObject ( uploader, "client", client );
+        ReflectionUtils.setField ( clientField, uploader, client );
     }
 
     private BasicHttpResponse getResponse ( Object payload, int statusCode ) throws UnsupportedEncodingException

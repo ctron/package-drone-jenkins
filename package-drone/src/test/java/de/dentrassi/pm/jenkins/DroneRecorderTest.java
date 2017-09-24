@@ -19,15 +19,24 @@ import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import org.hamcrest.CoreMatchers;
+import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
+
+import com.cloudbees.plugins.credentials.Credentials;
+import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
+import com.cloudbees.plugins.credentials.domains.Domain;
 
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 import hudson.FilePath.FileCallable;
@@ -36,11 +45,21 @@ import hudson.model.FreeStyleProject;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.remoting.VirtualChannel;
+import hudson.util.Secret;
 
 public class DroneRecorderTest
 {
     @Rule
     public JenkinsRule r = new JenkinsRule ();
+
+    @Before
+    public void setupCredentials ()
+    {
+        Credentials credentials = new StringCredentialsImpl ( CredentialsScope.GLOBAL, "secret", null, Secret.fromString ( "password" ) );
+        Map<Domain, List<Credentials>> credentialsMap = new HashMap<> ();
+        credentialsMap.put ( Domain.global (), Arrays.asList ( credentials ) );
+        SystemCredentialsProvider.getInstance ().setDomainCredentialsMap ( credentialsMap );
+    }
 
     @Test
     public void test_fails_on_empty_archive () throws Exception
@@ -55,6 +74,22 @@ public class DroneRecorderTest
 
         r.assertBuildStatus ( Result.FAILURE, build );
         r.assertLogContains ( "ERROR: " + Messages.DroneRecorder_noMatchFound ( artifacts ), build );
+    }
+
+    @Test
+    public void test_fails_if_credentials_not_exists () throws Exception
+    {
+        String artifacts = "*.zip";
+        String credentialsId = "secret2";
+        DroneRecorder buildStep = new DroneRecorder ( "http://myserver.com", "channel1", credentialsId, artifacts );
+
+        FreeStyleProject project = r.createFreeStyleProject ( "credentials_not_exists" );
+        buildStep.setAllowEmptyArchive ( true );
+        project.getPublishersList ().add ( buildStep );
+        FreeStyleBuild build = project.scheduleBuild2 ( 0 ).get ();
+
+        r.assertBuildStatus ( Result.FAILURE, build );
+        r.assertLogContains ( Messages.DroneRecorder_noCredentialIdFound ( credentialsId ), build );
     }
 
     @Test
@@ -86,7 +121,6 @@ public class DroneRecorderTest
         {
             return super.createCallable ( run, listener, artifacts, serverData );
         }
-
     }
 
     @Test
