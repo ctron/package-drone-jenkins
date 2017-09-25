@@ -23,8 +23,8 @@ Contributors:
 		<f:textbox />
 	</f:entry>
   
-	<f:entry title="${%deployKey.title}" field="deployKey">
-		<f:textbox />
+	<f:entry title="${%deployKey.title}" field="credentialsId">
+		<c:select />
 	</f:entry>
 	
 	<f:entry title="${%channel.title}" field="channel" description="${%channel.description}">

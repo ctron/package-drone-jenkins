@@ -16,18 +16,29 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.List;
 import java.util.regex.Pattern;
 
 import javax.annotation.CheckForNull;
 
+import org.acegisecurity.Authentication;
+import org.apache.commons.lang.StringUtils;
 import org.apache.tools.ant.types.FileSet;
 import org.jenkinsci.Symbol;
+import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
+import com.cloudbees.plugins.credentials.CredentialsMatchers;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
+import com.cloudbees.plugins.credentials.domains.DomainRequirement;
+import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
+
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
+import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
@@ -35,16 +46,22 @@ import hudson.FilePath.FileCallable;
 import hudson.Launcher;
 import hudson.Util;
 import hudson.model.AbstractProject;
+import hudson.model.Item;
+import hudson.model.Queue;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.model.queue.Tasks;
 import hudson.remoting.VirtualChannel;
+import hudson.security.ACL;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Publisher;
 import hudson.tasks.Recorder;
 import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import jenkins.MasterToSlaveFileCallable;
+import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
 
 public class DroneRecorder extends Recorder implements SimpleBuildStep
@@ -53,6 +70,9 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
     private String channel;
 
+    private String credentialsId;
+
+    @Deprecated
     private String deployKey;
 
     private String artifacts;
@@ -79,12 +99,12 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     private boolean uploadV3 = false;
 
     @DataBoundConstructor
-    public DroneRecorder ( final String serverUrl, final String channel, final String deployKey, final String artifacts )
+    public DroneRecorder ( final String serverUrl, final String channel, final String credentialsId, final String artifacts )
     {
         this.serverUrl = Util.fixEmptyAndTrim ( serverUrl );
         this.channel = Util.fixEmptyAndTrim ( channel );
         this.artifacts = Util.fixEmptyAndTrim ( artifacts );
-        this.deployKey = Util.fixEmptyAndTrim ( deployKey );
+        this.credentialsId = Util.fixEmptyAndTrim ( credentialsId );
     }
 
     /**
@@ -103,7 +123,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
      * Sets if use the default ant exclude pattern to exclude files to upload.
      *
      * @param defaultExcludes
-     *            if use the default ant exclude paths
+     *            if use the default ant exclude paths.
      */
     @DataBoundSetter
     public void setDefaultExcludes ( final boolean defaultExcludes )
@@ -111,6 +131,12 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         this.defaultExcludes = defaultExcludes;
     }
 
+    /**
+     * Sets if strip the path of the resources to upload.
+     *
+     * @param stripPath
+     *            if upload only the resource with its filename.
+     */
     @DataBoundSetter
     public void setStripPath ( final boolean stripPath )
     {
@@ -127,7 +153,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
      * Sets when mark the build as failed if there are no archives to upload.
      *
      * @param allowEmptyArchive
-     *            if is the build has to be marked as failed
+     *            if is the build has to be marked as failed.
      */
     @DataBoundSetter
     public void setAllowEmptyArchive ( final boolean allowEmptyArchive )
@@ -140,7 +166,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
      * archives upload.
      *
      * @param failsAsUpload
-     *            if the build has to be marked as failed
+     *            if the build has to be marked as failed.
      */
     @DataBoundSetter
     public void setFailsAsUpload ( final boolean failsAsUpload )
@@ -154,12 +180,19 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
      * This protocol is available since package drone server version 0.14.0 .
      *
      * @param uploadV3
-     *            if use the V3 protocol
+     *            if use the V3 protocol.
      */
     @DataBoundSetter
     public void setUploadV3 ( final boolean uploadV3 )
     {
         this.uploadV3 = uploadV3;
+    }
+
+    @Deprecated
+    @DataBoundSetter
+    public void setDeployKey ( final String deployKey )
+    {
+        this.deployKey = deployKey;
     }
 
     /**
@@ -203,13 +236,25 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     }
 
     /**
-     * Returns the deploy key used in the authentication to perform the upload.
+     * Returns the stored credentials id used as deploy key.
      *
-     * @return the deploy key
+     * @return credentials id
      */
+    public String getCredentialsId ()
+    {
+        return credentialsId;
+    }
+
+    /**
+     * Returns the deploy key.
+     *
+     * @return deploy key
+     * @deprecated Use {{@link #getCredentialsId()} instead.
+     */
+    @Deprecated
     public String getDeployKey ()
     {
-        return this.deployKey;
+        return deployKey;
     }
 
     /**
@@ -218,13 +263,18 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
      * Refers to the ant documentation for the complete list of default excludes
      * here: http://ant.apache.org/manual/dirtasks.html#defaultexcludes
      *
-     * @return {@code true} is use default, {@code false} otherwise
+     * @return {@code true} is use default, {@code false} otherwise.
      */
     public boolean isDefaultExcludes ()
     {
         return this.defaultExcludes;
     }
 
+    /**
+     * Returns if the resource will be uploaded without its local path.
+     *
+     * @return {@code true} if strip the path, {@code false} otherwise
+     */
     public boolean isStripPath ()
     {
         return this.stripPath;
@@ -234,7 +284,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
      * Returns when mark the build as failed if there are no archives to upload.
      *
      * @return {@code true} is the build has to be marked as failed,
-     *          {@code false} otherwise
+     *         {@code false} otherwise
      */
     public boolean isAllowEmptyArchive ()
     {
@@ -246,7 +296,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
      * archives upload.
      *
      * @return {@code true} is the build has to be marked as failed,
-     *          {@code false} otherwise
+     *         {@code false} otherwise.
      */
     public boolean isFailsAsUpload ()
     {
@@ -317,6 +367,64 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
             return result;
         }
 
+        public FormValidation doCheckCredentialsId ( @CheckForNull @AncestorInPath Item item, @QueryParameter String credentialsId, @QueryParameter String serverUrl )
+        {
+            if ( item == null )
+            {
+                if ( !Jenkins.getActiveInstance ().hasPermission ( Jenkins.ADMINISTER ) )
+                {
+                    return FormValidation.ok ();
+                }
+            }
+            else
+            {
+                if ( !item.hasPermission ( Item.EXTENDED_READ ) && !item.hasPermission ( CredentialsProvider.USE_ITEM ) )
+                {
+                    return FormValidation.ok ();
+                }
+            }
+            if ( StringUtils.isBlank ( credentialsId ) )
+            {
+                return FormValidation.warning ( Messages.DroneRecorder_DescriptorImpl_emptyCredentialsId () );
+            }
+
+            List<DomainRequirement> domainRequirement = URIRequirementBuilder.fromUri ( serverUrl ).build ();
+            if ( CredentialsProvider.listCredentials ( StringCredentials.class, item, getAuthentication ( item ), domainRequirement, CredentialsMatchers.withId ( credentialsId ) ).isEmpty () )
+            {
+                return FormValidation.error ( Messages.DroneRecorder_DescriptorImpl_invalidCredentialsId () );
+            }
+            return FormValidation.ok ();
+        }
+
+        public ListBoxModel doFillCredentialsIdItems ( @CheckForNull @AncestorInPath Item item, @QueryParameter String credentialsId, @QueryParameter String serverUrl )
+        {
+            StandardListBoxModel result = new StandardListBoxModel ();
+            if ( item == null )
+            {
+                if ( !Jenkins.getActiveInstance ().hasPermission ( Jenkins.ADMINISTER ) )
+                {
+                    return result.includeCurrentValue ( credentialsId );
+                }
+            }
+            else
+            {
+                if ( !item.hasPermission ( Item.EXTENDED_READ ) && !item.hasPermission ( CredentialsProvider.USE_ITEM ) )
+                {
+                    return result.includeCurrentValue ( credentialsId );
+                }
+            }
+
+            List<DomainRequirement> domainRequirement = URIRequirementBuilder.fromUri ( serverUrl ).build ();
+            return result.includeEmptyValue () //
+                    .includeMatchingAs ( getAuthentication ( item ), item, StringCredentials.class, domainRequirement, CredentialsMatchers.always () ) //
+                    .includeCurrentValue ( credentialsId );
+        }
+
+        protected Authentication getAuthentication ( Item item )
+        {
+            return item instanceof Queue.Task ? Tasks.getAuthenticationOf ( (Queue.Task)item ) : ACL.SYSTEM;
+        }
+
     }
 
     @Override
@@ -328,13 +436,26 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         // do not change constructor values because we can reuse the same step instance with different Environment variables (for example in pipeline)
         final String serverURL = Util.replaceMacro ( this.serverUrl, env );
         final String channel = Util.replaceMacro ( this.channel, env );
-        final String deployKey = Util.replaceMacro ( this.deployKey, env );
+        final String credentialsId = Util.replaceMacro ( this.credentialsId, env );
         final String artifacts = env.expand ( this.artifacts );
+        String deployKey = Util.replaceMacro ( this.deployKey, env );
 
-        if ( !validateStart ( serverURL, channel, deployKey, artifacts, listener ) )
+        if ( !validateStart ( serverURL, channel, ( credentialsId == null ? deployKey : credentialsId ), artifacts, listener ) )
         {
             run.setResult ( Result.FAILURE );
             return;
+        }
+
+        // to be back compatible use deployKey
+        if ( credentialsId != null )
+        {
+            List<DomainRequirement> domainRequirement = URIRequirementBuilder.fromUri ( serverURL ).build ();
+            StringCredentials secret = CredentialsProvider.findCredentialById ( credentialsId, StringCredentials.class, run, domainRequirement );
+            if ( secret == null )
+            {
+                throw new AbortException ( Messages.DroneRecorder_noCredentialIdFound ( credentialsId ) );
+            }
+            deployKey = secret.getSecret ().getPlainText ();
         }
 
         final ServerData serverData = new ServerData ( serverURL, channel, deployKey, uploadV3 );
@@ -379,7 +500,7 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     /*
      * Validates the input parameters
      */
-    private boolean validateStart ( final String serverURL, final String channel, final String deployKey, final String artifacts, final TaskListener listener )
+    private boolean validateStart ( final String serverURL, final String channel, final String credentialsId, final String artifacts, final TaskListener listener )
     {
         if ( artifacts == null || artifacts.isEmpty () )
         {
@@ -399,9 +520,9 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
             return false;
         }
 
-        if ( deployKey == null || deployKey.isEmpty () )
+        if ( credentialsId == null || credentialsId.isEmpty () )
         {
-            listener.fatalError ( Messages.DroneRecorder_emptyDeployKey () );
+            listener.fatalError ( Messages.DroneRecorder_emptyCredentialsId () );
             return false;
         }
 
@@ -509,6 +630,5 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         }
 
     }
-
 
 }

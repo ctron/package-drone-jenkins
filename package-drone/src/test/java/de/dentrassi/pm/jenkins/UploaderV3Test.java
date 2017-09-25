@@ -1,13 +1,19 @@
+/*******************************************************************************
+ * Copyright (c) 2017 Nikolas Falco.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *     Nikolas Falco - author of some PRs
+ *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -31,7 +37,6 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.message.BasicStatusLine;
-import org.codehaus.plexus.util.ReflectionUtils;
 import org.eclipse.packagedrone.repo.api.upload.ArtifactInformation;
 import org.eclipse.packagedrone.repo.api.upload.UploadError;
 import org.eclipse.packagedrone.repo.api.upload.UploadResult;
@@ -44,6 +49,7 @@ import org.mockito.ArgumentCaptor;
 import com.google.gson.Gson;
 
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
+import hudson.util.ReflectionUtils;
 
 public class UploaderV3Test
 {
@@ -214,9 +220,10 @@ public class UploaderV3Test
 
     private void setMockClient ( Uploader uploader, HttpClient client ) throws IllegalAccessException
     {
-        Field clientField = ReflectionUtils.getFieldByNameIncludingSuperclasses ( "client", uploader.getClass () );
+        Field clientField = ReflectionUtils.findField ( uploader.getClass (), "client" );
+        ReflectionUtils.makeAccessible ( clientField );
         FieldUtils.removeFinalModifier ( clientField, true );
-        ReflectionUtils.setVariableValueInObject ( uploader, "client", client );
+        ReflectionUtils.setField ( clientField, uploader, client );
     }
 
     private BasicHttpResponse getResponse ( Object payload, int statusCode ) throws UnsupportedEncodingException

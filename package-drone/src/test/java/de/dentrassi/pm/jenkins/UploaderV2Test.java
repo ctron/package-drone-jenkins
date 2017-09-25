@@ -38,7 +38,6 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.message.BasicStatusLine;
-import org.codehaus.plexus.util.ReflectionUtils;
 import org.hamcrest.CoreMatchers;
 import org.junit.Rule;
 import org.junit.Test;
@@ -46,6 +45,7 @@ import org.junit.rules.TemporaryFolder;
 import org.mockito.ArgumentCaptor;
 
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
+import hudson.util.ReflectionUtils;
 
 public class UploaderV2Test
 {
@@ -169,9 +169,10 @@ public class UploaderV2Test
 
     private void setMockClient ( UploaderV2 uploader, HttpClient client ) throws IllegalAccessException
     {
-        Field clientField = ReflectionUtils.getFieldByNameIncludingSuperclasses ( "client", uploader.getClass () );
+        Field clientField = ReflectionUtils.findField ( uploader.getClass (), "client" );
+        ReflectionUtils.makeAccessible ( clientField );
         FieldUtils.removeFinalModifier ( clientField, true );
-        ReflectionUtils.setVariableValueInObject ( uploader, "client", client );
+        ReflectionUtils.setField ( clientField, uploader, client );
     }
 
     private BasicHttpResponse getResponse ( String payload, int statusCode ) throws UnsupportedEncodingException

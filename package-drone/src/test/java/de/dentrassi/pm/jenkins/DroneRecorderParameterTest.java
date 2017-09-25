@@ -66,7 +66,7 @@ public class DroneRecorderParameterTest
         new DroneRecorder ( "serverURL", "channel", null, "*.zip" ).perform ( run, null, launcher, listener );
 
         Mockito.verify ( run ).setResult ( Result.FAILURE );
-        Mockito.verify ( listener ).fatalError ( Messages.DroneRecorder_emptyDeployKey () );
+        Mockito.verify ( listener ).fatalError ( Messages.DroneRecorder_emptyCredentialsId () );
     }
 
     @Test
