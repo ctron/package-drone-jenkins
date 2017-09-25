@@ -72,6 +72,9 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
 
     private String credentialsId;
 
+    @Deprecated
+    private String deployKey;
+
     private String artifacts;
 
     private String excludes = "";
@@ -185,6 +188,13 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         this.uploadV3 = uploadV3;
     }
 
+    @Deprecated
+    @DataBoundSetter
+    public void setDeployKey ( final String deployKey )
+    {
+        this.deployKey = deployKey;
+    }
+
     /**
      * Returns the URL of the package drone server till the context root path.
      *
@@ -233,6 +243,18 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
     public String getCredentialsId ()
     {
         return credentialsId;
+    }
+
+    /**
+     * Returns the deploy key.
+     *
+     * @return deploy key
+     * @deprecated Use {{@link #getCredentialsId()} instead.
+     */
+    @Deprecated
+    public String getDeployKey ()
+    {
+        return deployKey;
     }
 
     /**
@@ -416,20 +438,25 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         final String channel = Util.replaceMacro ( this.channel, env );
         final String credentialsId = Util.replaceMacro ( this.credentialsId, env );
         final String artifacts = env.expand ( this.artifacts );
+        String deployKey = Util.replaceMacro ( this.deployKey, env );
 
-        if ( !validateStart ( serverURL, channel, credentialsId, artifacts, listener ) )
+        if ( !validateStart ( serverURL, channel, ( credentialsId == null ? deployKey : credentialsId ), artifacts, listener ) )
         {
             run.setResult ( Result.FAILURE );
             return;
         }
 
-        List<DomainRequirement> domainRequirement = URIRequirementBuilder.fromUri ( serverURL ).build ();
-        StringCredentials secret = CredentialsProvider.findCredentialById ( credentialsId, StringCredentials.class, run, domainRequirement );
-        if ( secret == null )
+        // to be back compatible use deployKey
+        if ( credentialsId != null )
         {
-            throw new AbortException ( Messages.DroneRecorder_noCredentialIdFound ( credentialsId ) );
+            List<DomainRequirement> domainRequirement = URIRequirementBuilder.fromUri ( serverURL ).build ();
+            StringCredentials secret = CredentialsProvider.findCredentialById ( credentialsId, StringCredentials.class, run, domainRequirement );
+            if ( secret == null )
+            {
+                throw new AbortException ( Messages.DroneRecorder_noCredentialIdFound ( credentialsId ) );
+            }
+            deployKey = secret.getSecret ().getPlainText ();
         }
-        String deployKey = secret.getSecret ().getPlainText ();
 
         final ServerData serverData = new ServerData ( serverURL, channel, deployKey, uploadV3 );
         listener.info ( Messages.DroneRecorder_serverUrl ( serverURL ) );

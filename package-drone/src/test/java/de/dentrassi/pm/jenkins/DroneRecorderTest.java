@@ -93,6 +93,22 @@ public class DroneRecorderTest
     }
 
     @Test
+    public void test_deploy_key_back_compatibility_on_run () throws Exception
+    {
+        String artifacts = "*.zip";
+        String credentialsId = "secret2";
+        DroneRecorder buildStep = new DroneRecorder ( "http://myserver.com", "channel1", null, artifacts );
+        buildStep.setDeployKey ( credentialsId );
+
+        FreeStyleProject project = r.createFreeStyleProject ( "back_compatibility" );
+        buildStep.setAllowEmptyArchive ( true );
+        project.getPublishersList ().add ( buildStep );
+        FreeStyleBuild build = project.scheduleBuild2 ( 0 ).get ();
+
+        r.assertBuildStatus ( Result.SUCCESS, build );
+    }
+
+    @Test
     public void test_allows_empty_archive () throws Exception
     {
         String artifacts = "*.zip";
