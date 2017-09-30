@@ -48,6 +48,7 @@ import org.mockito.ArgumentCaptor;
 
 import com.google.gson.Gson;
 
+import de.dentrassi.pm.jenkins.http.DroneClient;
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 import hudson.util.ReflectionUtils;
 
@@ -71,9 +72,9 @@ public class UploaderV3Test
         given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( new UploadResult (), 200 ) );
 
         // build uploader and mock its internal the http client
-        try ( UploaderV3 uploader = new UploaderV3 ( runData, listener, serverData ) )
+        try ( UploaderV3 uploader = spy ( new UploaderV3 ( runData, listener, serverData ) ) )
         {
-            setMockClient ( uploader, client );
+            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
 
             uploader.performUpload ();
         }
@@ -114,7 +115,7 @@ public class UploaderV3Test
         Map<String, String> uploadedArtifacts = null;
 
         // build uploader and mock its internal the http client
-        try ( UploaderV3 uploader = new UploaderV3 ( runData, listener, serverData ) )
+        try ( UploaderV3 uploader = spy ( new UploaderV3 ( runData, listener, serverData ) ) )
         {
 
             UploadResult payload = createHTTPResult ( uploader, serverData.getChannel (), artifacts );
@@ -122,7 +123,7 @@ public class UploaderV3Test
             HttpClient client = mock ( HttpClient.class );
             given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( payload, 200 ) );
 
-            setMockClient ( uploader, client );
+            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
 
             uploader.performUpload ();
 
@@ -162,14 +163,14 @@ public class UploaderV3Test
         when ( listener.getLogger () ).thenReturn ( mock ( PrintStream.class ) );
 
         // build uploader and mock its internal the http client
-        try ( UploaderV3 uploader = new UploaderV3 ( runData, listener, serverData ) )
+        try ( UploaderV3 uploader = spy ( new UploaderV3 ( runData, listener, serverData ) ) )
         {
             uploader.addArtifact ( folder.newFile (), "f1" );
             uploader.addArtifact ( folder.newFolder (), "f2" );
 
             HttpClient client = mock ( HttpClient.class );
 
-            setMockClient ( uploader, client );
+            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
 
             uploader.performUpload ();
             fail ( "expected a IOException during creation of archive" );
@@ -199,9 +200,9 @@ public class UploaderV3Test
         given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( payload, 500 ) );
 
         // build uploader and mock its internal the http client
-        try ( UploaderV3 uploader = new UploaderV3 ( runData, listener, serverData ) )
+        try ( UploaderV3 uploader = spy ( new UploaderV3 ( runData, listener, serverData ) ) )
         {
-            setMockClient ( uploader, client );
+            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
 
             try
             {
@@ -218,12 +219,16 @@ public class UploaderV3Test
         }
     }
 
-    private void setMockClient ( Uploader uploader, HttpClient client ) throws IllegalAccessException
+    private DroneClient mockDroneClient ( HttpClient client ) throws IllegalAccessException
     {
-        Field clientField = ReflectionUtils.findField ( uploader.getClass (), "client" );
+        DroneClient droneClient = new DroneClient ();
+
+        Field clientField = ReflectionUtils.findField ( droneClient.getClass (), "client" );
         ReflectionUtils.makeAccessible ( clientField );
         FieldUtils.removeFinalModifier ( clientField, true );
-        ReflectionUtils.setField ( clientField, uploader, client );
+        ReflectionUtils.setField ( clientField, droneClient, client );
+
+        return droneClient;
     }
 
     private BasicHttpResponse getResponse ( Object payload, int statusCode ) throws UnsupportedEncodingException

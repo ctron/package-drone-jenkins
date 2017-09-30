@@ -10,14 +10,10 @@
  *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -30,6 +26,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
 
+import org.apache.commons.httpclient.util.URIUtil;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.client.HttpClient;
@@ -44,6 +41,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.ArgumentCaptor;
 
+import de.dentrassi.pm.jenkins.http.DroneClient;
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 import hudson.util.ReflectionUtils;
 
@@ -64,7 +62,7 @@ public class UploaderV2Test
         when ( listener.getLogger () ).thenReturn ( mock ( PrintStream.class ) );
 
         // build uploader and mock its internal the http client
-        try ( UploaderV2 uploader = new UploaderV2 ( runData, listener, serverData ) )
+        try ( UploaderV2 uploader = spy(new UploaderV2 ( runData, listener, serverData )) )
         {
 
             uploader.addArtifact ( folder.newFile (), "f1" );
@@ -73,7 +71,7 @@ public class UploaderV2Test
             HttpClient client = mock ( HttpClient.class );
             given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 200 ) );
 
-            setMockClient ( uploader, client );
+            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
 
             uploader.performUpload ();
 
@@ -91,11 +89,11 @@ public class UploaderV2Test
                 assertThat ( put.getURI ().getPort (), CoreMatchers.is ( -1 ) );
                 assertThat ( put.getURI ().getPath (), CoreMatchers.startsWith ( "/api/v2/upload/channel/" + serverData.getChannel () + "/f" ) );
                 assertThat ( put.getURI ().getQuery (), CoreMatchers.allOf ( //
-                        CoreMatchers.containsString ( "jenkins:timestamp=" + sdf.format ( runData.getTime () ).replace ( ' ', '+' ) ), //
-                        CoreMatchers.containsString ( "jenkins:buildUrl=http://localhost:8080/jenkins" ), //
-                        CoreMatchers.containsString ( "jenkins:jobName=test_job" ), //
-                        CoreMatchers.containsString ( "jenkins:buildNumber=1" ), //
-                        CoreMatchers.containsString ( "jenkins:buildId=test_job" ) ) );
+                        CoreMatchers.containsString ( URIUtil.encodeWithinQuery ( "jenkins:timestamp" ) + "=" + URIUtil.encodeWithinQuery ( sdf.format ( runData.getTime () ) ) ), //
+                        CoreMatchers.containsString ( URIUtil.encodeWithinQuery ( "jenkins:buildUrl" ) + "=" + URIUtil.encodeWithinQuery ( "http://localhost:8080/jenkins" ) ), //
+                        CoreMatchers.containsString ( URIUtil.encodeWithinQuery ( "jenkins:jobName" ) + "=" + URIUtil.encodeWithinQuery ( "test_job" ) ), //
+                        CoreMatchers.containsString ( URIUtil.encodeWithinQuery ( "jenkins:buildNumber" ) + "=" + URIUtil.encodeWithinQuery ( "1" ) ), //
+                        CoreMatchers.containsString ( URIUtil.encodeWithinQuery ( "jenkins:buildId" ) + "=" + URIUtil.encodeWithinQuery ( "test_job" ) ) ) );
                 assertThat ( put.getURI ().getFragment (), CoreMatchers.nullValue () );
             }
         }
@@ -112,7 +110,7 @@ public class UploaderV2Test
         when ( listener.getLogger () ).thenReturn ( mock ( PrintStream.class ) );
 
         // build uploader and mock its internal the http client
-        try ( UploaderV2 uploader = new UploaderV2 ( runData, listener, serverData ) )
+        try ( UploaderV2 uploader = spy ( new UploaderV2 ( runData, listener, serverData ) ) )
         {
 
             uploader.addArtifact ( folder.newFile (), "f1" );
@@ -121,7 +119,7 @@ public class UploaderV2Test
             HttpClient client = mock ( HttpClient.class );
             given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 200 ) );
 
-            setMockClient ( uploader, client );
+            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
 
             uploader.performUpload ();
 
@@ -142,7 +140,7 @@ public class UploaderV2Test
         when ( listener.getLogger () ).thenReturn ( mock ( PrintStream.class ) );
 
         // build uploader and mock its internal the http client
-        try ( UploaderV2 uploader = new UploaderV2 ( runData, listener, serverData ) )
+        try ( UploaderV2 uploader = spy ( new UploaderV2 ( runData, listener, serverData ) ) )
         {
             uploader.addArtifact ( folder.newFile (), "f1" );
             uploader.addArtifact ( folder.newFile (), "f2" );
@@ -150,7 +148,7 @@ public class UploaderV2Test
             HttpClient client = mock ( HttpClient.class );
             given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 500 ) );
 
-            setMockClient ( uploader, client );
+            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
             try
             {
                 uploader.performUpload ();
@@ -167,12 +165,16 @@ public class UploaderV2Test
         }
     }
 
-    private void setMockClient ( UploaderV2 uploader, HttpClient client ) throws IllegalAccessException
+    private DroneClient mockDroneClient ( HttpClient client ) throws IllegalAccessException
     {
-        Field clientField = ReflectionUtils.findField ( uploader.getClass (), "client" );
+        DroneClient droneClient = new DroneClient ();
+
+        Field clientField = ReflectionUtils.findField ( droneClient.getClass (), "client" );
         ReflectionUtils.makeAccessible ( clientField );
         FieldUtils.removeFinalModifier ( clientField, true );
-        ReflectionUtils.setField ( clientField, uploader, client );
+        ReflectionUtils.setField ( clientField, droneClient, client );
+
+        return droneClient;
     }
 
     private BasicHttpResponse getResponse ( String payload, int statusCode ) throws UnsupportedEncodingException
