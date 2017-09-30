@@ -12,13 +12,10 @@ package de.dentrassi.pm.jenkins;
 
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.BDDMockito.*;
 import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Field;
 import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -28,15 +25,16 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TimeZone;
 
-import org.apache.commons.lang3.reflect.FieldUtils;
-import org.apache.http.HttpHeaders;
+import org.apache.http.HttpResponse;
 import org.apache.http.ProtocolVersion;
-import org.apache.http.client.HttpClient;
+import org.apache.http.client.fluent.Executor;
+import org.apache.http.client.fluent.Request;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.message.BasicStatusLine;
+import org.codehaus.plexus.util.ReflectionUtils;
 import org.eclipse.packagedrone.repo.api.upload.ArtifactInformation;
 import org.eclipse.packagedrone.repo.api.upload.UploadError;
 import org.eclipse.packagedrone.repo.api.upload.UploadResult;
@@ -48,11 +46,9 @@ import org.mockito.ArgumentCaptor;
 
 import com.google.gson.Gson;
 
-import de.dentrassi.pm.jenkins.http.DroneClient;
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
-import hudson.util.ReflectionUtils;
 
-public class UploaderV3Test
+public class UploaderV3Test extends AbstractUploaderTest
 {
 
     @Rule
@@ -68,26 +64,26 @@ public class UploaderV3Test
         LoggerListenerWrapper listener = mock ( LoggerListenerWrapper.class );
         when ( listener.getLogger () ).thenReturn ( mock ( PrintStream.class ) );
 
-        HttpClient client = mock ( HttpClient.class );
-        given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( new UploadResult (), 200 ) );
+        Executor executor = mockExecutor ();
+        doReturn ( mockResponse ( buildResponse ( new UploadResult (), 200 ) ) ).when ( executor ).execute ( any ( Request.class ) );
 
         // build uploader and mock its internal the http client
         try ( UploaderV3 uploader = spy ( new UploaderV3 ( runData, listener, serverData ) ) )
         {
-            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
+            doReturn ( mockDroneClient ( executor ) ).when ( uploader ).getClient ();
 
             uploader.performUpload ();
         }
 
-        ArgumentCaptor<HttpUriRequest> argument = ArgumentCaptor.forClass ( HttpUriRequest.class );
-        verify ( client ).execute ( argument.capture () );
+        ArgumentCaptor<Request> argument = ArgumentCaptor.forClass ( Request.class );
+        verify ( executor ).execute ( argument.capture () );
 
         SimpleDateFormat sdf = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
         sdf.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
 
-        HttpUriRequest put = argument.getValue ();
-        assertThat ( put.getHeaders ( HttpHeaders.AUTHORIZATION ), CoreMatchers.notNullValue () );
-        assertThat ( put.getHeaders ( HttpHeaders.AUTHORIZATION )[0].getValue (), CoreMatchers.is ( "Basic ZGVwbG95OnNlY3JldA==" ) );
+        Request req = argument.getValue ();
+
+        HttpUriRequest put = (HttpUriRequest)ReflectionUtils.getValueIncludingSuperclasses ( "request", req );
 
         URI host = new URI ( serverData.getServerURL () );
         assertThat ( put.getURI ().getScheme (), CoreMatchers.is ( host.getScheme () ) );
@@ -120,10 +116,10 @@ public class UploaderV3Test
 
             UploadResult payload = createHTTPResult ( uploader, serverData.getChannel (), artifacts );
 
-            HttpClient client = mock ( HttpClient.class );
-            given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( payload, 200 ) );
+            Executor executor = mockExecutor ();
+            doReturn ( mockResponse ( buildResponse ( payload, 200 ) ) ).when ( executor ).execute ( any ( Request.class ) );
 
-            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
+            doReturn ( mockDroneClient ( executor ) ).when ( uploader ).getClient ();
 
             uploader.performUpload ();
 
@@ -168,9 +164,8 @@ public class UploaderV3Test
             uploader.addArtifact ( folder.newFile (), "f1" );
             uploader.addArtifact ( folder.newFolder (), "f2" );
 
-            HttpClient client = mock ( HttpClient.class );
-
-            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
+            Executor executor = mockExecutor ();
+            doReturn ( mockDroneClient ( executor ) ).when ( uploader ).getClient ();
 
             uploader.performUpload ();
             fail ( "expected a IOException during creation of archive" );
@@ -196,13 +191,13 @@ public class UploaderV3Test
         artifacts.put ( "f2", "f1Id" );
         UploadError payload = new UploadError ( "this is a test" );
 
-        HttpClient client = mock ( HttpClient.class );
-        given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( payload, 500 ) );
+        Executor executor = mockExecutor ();
+        doReturn ( mockResponse ( buildResponse ( payload, 500 ) ) ).when ( executor ).execute ( any ( Request.class ) );
 
         // build uploader and mock its internal the http client
         try ( UploaderV3 uploader = spy ( new UploaderV3 ( runData, listener, serverData ) ) )
         {
-            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
+            doReturn ( mockDroneClient ( executor ) ).when ( uploader ).getClient ();
 
             try
             {
@@ -219,25 +214,15 @@ public class UploaderV3Test
         }
     }
 
-    private DroneClient mockDroneClient ( HttpClient client ) throws IllegalAccessException
-    {
-        DroneClient droneClient = new DroneClient ();
-
-        Field clientField = ReflectionUtils.findField ( droneClient.getClass (), "client" );
-        ReflectionUtils.makeAccessible ( clientField );
-        FieldUtils.removeFinalModifier ( clientField, true );
-        ReflectionUtils.setField ( clientField, droneClient, client );
-
-        return droneClient;
-    }
-
-    private BasicHttpResponse getResponse ( Object payload, int statusCode ) throws UnsupportedEncodingException
+    @Override
+    protected HttpResponse buildResponse ( Object payload, int statusCode ) throws Exception
     {
         StringEntity entity = new StringEntity ( new Gson ().toJson ( payload ) );
         entity.setContentType ( "application/json" );
 
         BasicHttpResponse response = new BasicHttpResponse ( new BasicStatusLine ( new ProtocolVersion ( "HTTP", 1, 1 ), statusCode, EnglishReasonPhraseCatalog.INSTANCE.getReason ( statusCode, Locale.ENGLISH ) ) );
         response.setEntity ( entity );
+
         return response;
     }
 

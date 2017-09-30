@@ -12,12 +12,10 @@ package de.dentrassi.pm.jenkins;
 
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.BDDMockito.*;
 import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.text.SimpleDateFormat;
@@ -26,10 +24,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
 
-import org.apache.commons.httpclient.util.URIUtil;
-import org.apache.commons.lang3.reflect.FieldUtils;
+import org.apache.http.HttpResponse;
 import org.apache.http.ProtocolVersion;
-import org.apache.http.client.HttpClient;
+import org.apache.http.client.fluent.Executor;
+import org.apache.http.client.fluent.Request;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
@@ -41,11 +39,10 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.ArgumentCaptor;
 
-import de.dentrassi.pm.jenkins.http.DroneClient;
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 import hudson.util.ReflectionUtils;
 
-public class UploaderV2Test
+public class UploaderV2Test extends AbstractUploaderTest
 {
 
     @Rule
@@ -62,38 +59,44 @@ public class UploaderV2Test
         when ( listener.getLogger () ).thenReturn ( mock ( PrintStream.class ) );
 
         // build uploader and mock its internal the http client
-        try ( UploaderV2 uploader = spy(new UploaderV2 ( runData, listener, serverData )) )
+        try ( UploaderV2 uploader = spy ( new UploaderV2 ( runData, listener, serverData ) ) )
         {
 
             uploader.addArtifact ( folder.newFile (), "f1" );
             uploader.addArtifact ( folder.newFile (), "f2" );
 
-            HttpClient client = mock ( HttpClient.class );
-            given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 200 ) );
+            Executor executor = spy ( Executor.newInstance () );
+            doReturn ( mockResponse ( buildResponse ( "f1Id", 200 ) ), mockResponse ( buildResponse ( "f2Id", 200 ) ) ) //
+                    .when ( executor ).execute ( any ( Request.class ) );
 
-            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
+            doReturn ( mockDroneClient ( executor ) ).when ( uploader ).getClient ();
 
             uploader.performUpload ();
 
-            ArgumentCaptor<HttpUriRequest> argument = ArgumentCaptor.forClass ( HttpUriRequest.class );
-            verify ( client, times ( 2 ) ).execute ( argument.capture () );
+            ArgumentCaptor<Request> argument = ArgumentCaptor.forClass ( Request.class );
+            verify ( executor, times ( 2 ) ).execute ( argument.capture () );
 
             SimpleDateFormat sdf = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
             sdf.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
 
-            for ( HttpUriRequest put : argument.getAllValues () )
+            Field requestField = ReflectionUtils.findField ( Request.class, "request" );
+            ReflectionUtils.makeAccessible ( requestField );
+
+            for ( Request req : argument.getAllValues () )
             {
+                HttpUriRequest put = (HttpUriRequest)ReflectionUtils.getField ( requestField, req );
+
                 URI host = new URI ( serverData.getServerURL () );
                 assertThat ( put.getURI ().getScheme (), CoreMatchers.is ( host.getScheme () ) );
                 assertThat ( put.getURI ().getHost (), CoreMatchers.is ( host.getHost () ) );
                 assertThat ( put.getURI ().getPort (), CoreMatchers.is ( -1 ) );
                 assertThat ( put.getURI ().getPath (), CoreMatchers.startsWith ( "/api/v2/upload/channel/" + serverData.getChannel () + "/f" ) );
                 assertThat ( put.getURI ().getQuery (), CoreMatchers.allOf ( //
-                        CoreMatchers.containsString ( URIUtil.encodeWithinQuery ( "jenkins:timestamp" ) + "=" + URIUtil.encodeWithinQuery ( sdf.format ( runData.getTime () ) ) ), //
-                        CoreMatchers.containsString ( URIUtil.encodeWithinQuery ( "jenkins:buildUrl" ) + "=" + URIUtil.encodeWithinQuery ( "http://localhost:8080/jenkins" ) ), //
-                        CoreMatchers.containsString ( URIUtil.encodeWithinQuery ( "jenkins:jobName" ) + "=" + URIUtil.encodeWithinQuery ( "test_job" ) ), //
-                        CoreMatchers.containsString ( URIUtil.encodeWithinQuery ( "jenkins:buildNumber" ) + "=" + URIUtil.encodeWithinQuery ( "1" ) ), //
-                        CoreMatchers.containsString ( URIUtil.encodeWithinQuery ( "jenkins:buildId" ) + "=" + URIUtil.encodeWithinQuery ( "test_job" ) ) ) );
+                        CoreMatchers.containsString ( "jenkins:timestamp=" + sdf.format ( runData.getTime () ).replace ( ' ', '+' ) ), //
+                        CoreMatchers.containsString ( "jenkins:buildUrl=http://localhost:8080/jenkins" ), //
+                        CoreMatchers.containsString ( "jenkins:jobName=test_job" ), //
+                        CoreMatchers.containsString ( "jenkins:buildNumber=1" ), //
+                        CoreMatchers.containsString ( "jenkins:buildId=test_job" ) ) );
                 assertThat ( put.getURI ().getFragment (), CoreMatchers.nullValue () );
             }
         }
@@ -116,10 +119,11 @@ public class UploaderV2Test
             uploader.addArtifact ( folder.newFile (), "f1" );
             uploader.addArtifact ( folder.newFile (), "f2" );
 
-            HttpClient client = mock ( HttpClient.class );
-            given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 200 ) );
+            Executor executor = spy ( Executor.newInstance () );
+            doReturn ( mockResponse ( buildResponse ( "f1Id", 200 ) ), mockResponse ( buildResponse ( "f2Id", 200 ) ) ) //
+                    .when ( executor ).execute ( any ( Request.class ) );
 
-            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
+            doReturn ( mockDroneClient ( executor ) ).when ( uploader ).getClient ();
 
             uploader.performUpload ();
 
@@ -145,10 +149,11 @@ public class UploaderV2Test
             uploader.addArtifact ( folder.newFile (), "f1" );
             uploader.addArtifact ( folder.newFile (), "f2" );
 
-            HttpClient client = mock ( HttpClient.class );
-            given ( client.execute ( any ( HttpUriRequest.class ) ) ).willReturn ( getResponse ( "f1Id", 200 ), getResponse ( "f2Id", 500 ) );
+            Executor executor = spy ( Executor.newInstance () );
+            doReturn ( mockResponse ( buildResponse ( "f1Id", 200 ) ), mockResponse ( buildResponse ( "f2Id", 500 ) ) ) //
+                    .when ( executor ).execute ( any ( Request.class ) );
 
-            doReturn ( mockDroneClient ( client ) ).when ( uploader ).getClient ();
+            doReturn ( mockDroneClient ( executor ) ).when ( uploader ).getClient ();
             try
             {
                 uploader.performUpload ();
@@ -165,22 +170,12 @@ public class UploaderV2Test
         }
     }
 
-    private DroneClient mockDroneClient ( HttpClient client ) throws IllegalAccessException
-    {
-        DroneClient droneClient = new DroneClient ();
-
-        Field clientField = ReflectionUtils.findField ( droneClient.getClass (), "client" );
-        ReflectionUtils.makeAccessible ( clientField );
-        FieldUtils.removeFinalModifier ( clientField, true );
-        ReflectionUtils.setField ( clientField, droneClient, client );
-
-        return droneClient;
-    }
-
-    private BasicHttpResponse getResponse ( String payload, int statusCode ) throws UnsupportedEncodingException
+    @Override
+    protected HttpResponse buildResponse ( Object payload, int statusCode ) throws Exception
     {
         BasicHttpResponse response = new BasicHttpResponse ( new BasicStatusLine ( new ProtocolVersion ( "HTTP", 1, 1 ), statusCode, EnglishReasonPhraseCatalog.INSTANCE.getReason ( statusCode, Locale.ENGLISH ) ) );
-        response.setEntity ( new StringEntity ( payload ) );
+        response.setEntity ( new StringEntity ( String.valueOf ( payload ) ) );
+
         return response;
     }
 
