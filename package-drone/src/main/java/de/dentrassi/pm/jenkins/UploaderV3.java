@@ -18,8 +18,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,18 +26,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.httpclient.URIException;
-import org.apache.commons.httpclient.util.URIUtil;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.utils.HttpClientUtils;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.entity.FileEntity;
-import org.apache.http.impl.client.HttpClients;
 import org.eclipse.packagedrone.repo.api.transfer.TransferArchiveWriter;
 import org.eclipse.packagedrone.repo.api.upload.ArtifactInformation;
 import org.eclipse.packagedrone.repo.api.upload.RejectedArtifact;
@@ -53,18 +41,12 @@ import hudson.console.ExpandableDetailsNote;
 
 public class UploaderV3 extends AbstractUploader
 {
-    private final HttpClient client;
-
     private final LoggerListenerWrapper listener;
-
-    private final ServerData serverData;
 
     public UploaderV3 ( final RunData runData, final LoggerListenerWrapper listener, final ServerData serverData ) throws IOException
     {
-        super(runData);
-        this.client = HttpClients.createDefault ();
+        super ( runData, serverData );
         this.listener = listener;
-        this.serverData = serverData;
 
         listener.info ( "Uploading using Package Drone V3 uploader" );
     }
@@ -76,24 +58,13 @@ public class UploaderV3 extends AbstractUploader
     @Override
     public void performUpload () throws IOException
     {
+        setupClient ();
+
         File archiveFile = null;
         try
         {
-            final URI uri = makeUrl ();
-
-            this.listener.debug ( "API endpoint: " + uri.toString () );
-
-            final HttpPut httpPut = new HttpPut ( uri );
-
-            final String encodedAuth = Base64.encodeBase64String ( ( "deploy:" + this.serverData.getDeployKey () ).getBytes ( "ISO-8859-1" ) );
-            httpPut.setHeader ( HttpHeaders.AUTHORIZATION, "Basic " + encodedAuth );
-
-            // constructs the archive only when is needed
-            archiveFile = createTransferArchive ();
-            httpPut.setEntity ( new FileEntity ( archiveFile ) );
-
-            final HttpResponse response = this.client.execute ( httpPut );
-            final HttpEntity resEntity = response.getEntity ();
+            HttpResponse response = getClient().uploadToChannelV3 ( createTransferArchive () );
+            HttpEntity resEntity = response.getEntity ();
 
             this.listener.debug ( "Call returned: " + response.getStatusLine () );
 
@@ -121,32 +92,10 @@ public class UploaderV3 extends AbstractUploader
                 this.listener.error ( "Did not receive a result" );
             }
         }
-        catch ( final URISyntaxException e )
-        {
-            throw new IOException ( "Upload URL syntax error: " + e.getMessage (), e );
-        }
         finally
         {
             deleteFile ( archiveFile );
         }
-    }
-
-    private URI makeUrl () throws URISyntaxException, URIException
-    {
-        final URI fullUri;
-        try
-        {
-            final URIBuilder builder = new URIBuilder ( this.serverData.getServerURL () );
-
-            builder.setPath ( String.format ( "%s/api/v3/upload/archive/channel/%s", builder.getPath (), URIUtil.encodeWithinPath ( this.serverData.getChannel () ) ) );
-
-            fullUri = builder.build ();
-        }
-        catch ( URISyntaxException e )
-        {
-            throw new URIException ( e.getReason () );
-        }
-        return fullUri;
     }
 
     private File createTransferArchive () throws IOException
@@ -206,7 +155,7 @@ public class UploaderV3 extends AbstractUploader
             final UploadResult result = new GsonBuilder ().create ().fromJson ( string, UploadResult.class );
 
             this.listener.getLogger ().print ( "Uploaded to chanel: " );
-            this.listener.hyperlink ( URLMaker.make ( this.serverData.getServerURL (), this.serverData.getChannel () ), this.serverData.getChannel () );
+            this.listener.hyperlink ( URLMaker.make ( this.getServerData().getServerURL (), this.getServerData().getChannel () ), this.getServerData().getChannel () );
             this.listener.getLogger ().println ();
             this.listener.annotate ( makeArtifactsList ( result ) );
             this.listener.getLogger ().println ();
@@ -309,7 +258,7 @@ public class UploaderV3 extends AbstractUploader
             sb.append ( "<td>" ).append ( entry.getName () ).append ( "</td>" );
             if ( !entry.isRejected () )
             {
-                sb.append ( "<td>" ).append ( "<a target=\"_blank\" href=\"" ).append ( URLMaker.make ( this.serverData.getServerURL (), result.getChannelId (), entry.getId () ) ).append ( "\">" ).append ( entry.getId () ).append ( "</a>" ).append ( "</td>" );
+                sb.append ( "<td>" ).append ( "<a target=\"_blank\" href=\"" ).append ( URLMaker.make ( this.getServerData().getServerURL (), result.getChannelId (), entry.getId () ) ).append ( "\">" ).append ( entry.getId () ).append ( "</a>" ).append ( "</td>" );
                 sb.append ( "<td>" ).append ( entry.getArtifactInformation ().getSize () ).append ( "</td>" );
 
                 sb.append ( "<td>" );
@@ -337,12 +286,6 @@ public class UploaderV3 extends AbstractUploader
         sb.append ( "</tbody></table>" );
 
         return new ExpandableDetailsNote ( String.format ( "Uploaded: %s, rejected: %s", result.getCreatedArtifacts ().size (), result.getRejectedArtifacts ().size () ), sb.toString () );
-    }
-
-    @Override
-    public void close () throws IOException
-    {
-        HttpClientUtils.closeQuietly ( client );
     }
 
 }

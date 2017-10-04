@@ -23,15 +23,21 @@ import java.util.TimeZone;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 
+import de.dentrassi.pm.jenkins.http.DroneClient;
+
 public abstract class AbstractUploader implements Uploader
 {
     protected static final Charset UTF_8 = Charset.forName ( "UTF-8" );
 
     protected final RunData runData;
 
-    private final SimpleDateFormat sdf;
-
     protected final Map<File, String> filesToUpload;
+
+    private final DroneClient client;
+
+    private final ServerData serverData;
+
+    private final SimpleDateFormat sdf;
 
     /**
      * Map containing the id and filename of the successfully uploaded artifacts
@@ -39,13 +45,15 @@ public abstract class AbstractUploader implements Uploader
      */
     protected final Map<String, String> uploadedArtifacts;
 
-    public AbstractUploader ( final RunData runData )
+    public AbstractUploader ( final RunData runData, ServerData serverData )
     {
         this.runData = runData;
         this.filesToUpload = new LinkedHashMap<> ();
         this.uploadedArtifacts = new HashMap<> ();
         this.sdf = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
         this.sdf.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
+        this.client = new DroneClient ();
+        this.serverData = serverData;
     }
 
     protected void fillProperties ( final Map<String, String> properties )
@@ -55,6 +63,23 @@ public abstract class AbstractUploader implements Uploader
         properties.put ( "jenkins:buildId", this.runData.getId () );
         properties.put ( "jenkins:buildNumber", String.valueOf ( this.runData.getNumber () ) );
         properties.put ( "jenkins:jobName", this.runData.getFullName () );
+    }
+
+    protected void setupClient ()
+    {
+        this.getClient ().setServerURL ( this.getServerData ().getServerURL () );
+        this.getClient ().setCredentials ( "deploy", this.getServerData ().getDeployKey () );
+        this.getClient ().setChannel ( this.getServerData ().getChannel () );
+    }
+
+    protected DroneClient getClient ()
+    {
+        return client;
+    }
+
+    protected ServerData getServerData ()
+    {
+        return serverData;
     }
 
     protected static String makeString ( final HttpEntity entity ) throws IOException
@@ -83,8 +108,9 @@ public abstract class AbstractUploader implements Uploader
     }
 
     @Override
-    public void close () throws IOException
+    public void close ()
     {
-        // do nothing
+        getClient ().close ();
     }
+
 }

@@ -12,72 +12,26 @@ package de.dentrassi.pm.jenkins;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.apache.commons.httpclient.URIException;
-import org.apache.commons.httpclient.util.URIUtil;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.utils.HttpClientUtils;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.entity.FileEntity;
-import org.apache.http.impl.client.HttpClients;
 
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 
 public class UploaderV2 extends AbstractUploader
 {
-    private final HttpClient client;
-
     private final LoggerListenerWrapper listener;
-
-    private final ServerData serverData;
 
     public UploaderV2 ( final RunData runData, final LoggerListenerWrapper listener, final ServerData serverData )
     {
-        super ( runData );
-        this.client = HttpClients.createDefault ();
+        super ( runData, serverData );
         this.listener = listener;
-        this.serverData = serverData;
 
         listener.info ( "Uploading using Package Drone V2 uploader" );
-    }
-
-    private URI makeUrl ( final String file ) throws IOException
-    {
-        final URI fullUri;
-        try
-        {
-
-            final URIBuilder b = new URIBuilder ( this.serverData.getServerURL () );
-
-            b.setUserInfo ( "deploy", this.serverData.getDeployKey () );
-
-            b.setPath ( b.getPath () + String.format ( "/api/v2/upload/channel/%s/%s", URIUtil.encodeWithinPath ( this.serverData.getChannel () ), file ) );
-
-            final Map<String, String> properties = new HashMap<> ();
-            fillProperties ( properties );
-
-            for ( final Map.Entry<String, String> entry : properties.entrySet () )
-            {
-                b.addParameter ( entry.getKey (), entry.getValue () );
-            }
-
-            fullUri = b.build ();
-
-        }
-        catch ( URISyntaxException e )
-        {
-            throw new URIException ( e.getReason () );
-        }
-        return fullUri;
     }
 
     /*
@@ -87,6 +41,8 @@ public class UploaderV2 extends AbstractUploader
     @Override
     public void performUpload () throws IOException
     {
+        setupClient ();
+
         Set<Entry<File, String>> entries = filesToUpload.entrySet ();
         for ( Entry<File, String> entry : entries )
         {
@@ -96,12 +52,10 @@ public class UploaderV2 extends AbstractUploader
 
     private void uploadArtifact ( final File file, final String filename ) throws IOException
     {
-        final URI uri = makeUrl ( filename );
-        final HttpPut httpPut = new HttpPut ( uri );
+        final Map<String, String> properties = new HashMap<> ();
+        fillProperties ( properties );
 
-        httpPut.setEntity ( new FileEntity ( file ) );
-
-        final HttpResponse response = this.client.execute ( httpPut );
+        final HttpResponse response = getClient().uploadToChannelV2 ( properties, filename, file );
         final HttpEntity resEntity = response.getEntity ();
 
         if ( resEntity != null )
@@ -133,14 +87,8 @@ public class UploaderV2 extends AbstractUploader
 
         // TODO improve how use the logger
         this.listener.getLogger ().print (  "Uploaded " );
-        this.listener.hyperlink ( URLMaker.make ( serverData.getServerURL (), serverData.getChannel (), artId ), fileName);
-        this.listener.info ( " to channel %s", serverData.getChannel () );
-    }
-
-    @Override
-    public void close ()
-    {
-        HttpClientUtils.closeQuietly ( this.client );
+        this.listener.hyperlink ( URLMaker.make ( getServerData().getServerURL (), getServerData().getChannel (), artId ), fileName);
+        this.listener.info ( " to channel %s", getServerData().getChannel () );
     }
 
 }
