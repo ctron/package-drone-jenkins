@@ -32,7 +32,6 @@ import org.apache.http.client.utils.URIBuilder;
 
 import hudson.ProxyConfiguration;
 import hudson.util.Secret;
-import jenkins.model.Jenkins;
 
 /**
  * An HTTP client to comunicate with the package drone server endpoints.
@@ -52,6 +51,8 @@ public class DroneClient implements Closeable
     private String channel;
 
     private Executor executor;
+
+    private ProxyConfiguration proxy;
 
     private HttpHost proxyHost;
 
@@ -74,6 +75,11 @@ public class DroneClient implements Closeable
     public void setChannel ( String channel )
     {
         this.channel = channel;
+    }
+
+    public void setProxy ( ProxyConfiguration proxy )
+    {
+        this.proxy = proxy;
     }
 
     public HttpResponse uploadToChannelV2 ( Map<String, String> properties, String artifact, File file ) throws IOException
@@ -149,15 +155,14 @@ public class DroneClient implements Closeable
 
             executor = executor.auth ( new AuthScope ( targetHost ), new UsernamePasswordCredentials ( user, password ) ).authPreemptive ( targetHost );
 
-            ProxyConfiguration proxycfg = getProxy ();
-            if ( proxycfg != null && proxycfg.createProxy ( pdroneServer.getHost () ) != Proxy.NO_PROXY )
+            if ( proxy != null && !Proxy.NO_PROXY.equals ( proxy.createProxy ( pdroneServer.getHost () ) ) )
             {
-                proxyHost = new HttpHost ( proxycfg.name, proxycfg.port );
+                proxyHost = new HttpHost ( proxy.name, proxy.port );
 
-                String userName = proxycfg.getUserName ();
-                if ( userName != null && proxycfg.getEncryptedPassword () != null )
+                String userName = proxy.getUserName ();
+                if ( userName != null && proxy.getEncryptedPassword () != null )
                 {
-                    String userPassword = Secret.decrypt ( proxycfg.getEncryptedPassword () ).getPlainText ();
+                    String userPassword = Secret.decrypt ( proxy.getEncryptedPassword () ).getPlainText ();
 
                     executor = executor.auth ( new AuthScope ( proxyHost ), new UsernamePasswordCredentials ( userName, userPassword ) ).authPreemptiveProxy ( proxyHost );
                 }
@@ -172,11 +177,6 @@ public class DroneClient implements Closeable
     protected Executor createExecutor ()
     {
         return Executor.newInstance ();
-    }
-
-    protected ProxyConfiguration getProxy ()
-    {
-        return Jenkins.getActiveInstance ().proxy;
     }
 
     @Override

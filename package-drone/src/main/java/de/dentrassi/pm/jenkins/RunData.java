@@ -13,17 +13,24 @@ package de.dentrassi.pm.jenkins;
 import java.io.Serializable;
 import java.util.Date;
 
+import hudson.ProxyConfiguration;
 import hudson.model.Run;
 import jenkins.model.Jenkins;
 
 public class RunData implements Serializable {
     private static final long serialVersionUID = -6270671692552179049L;
 
-    private String url;
-    private Date time;
-    private String id;
-    private int number;
-    private String fullName;
+    private final String url;
+
+    private final Date time;
+
+    private final String id;
+
+    private final int number;
+
+    private final String fullName;
+
+    private final ProxyConfiguration proxy;
 
     RunData ( Run<?, ?> run )
     {
@@ -35,10 +42,12 @@ public class RunData implements Serializable {
         if ( jenkins != null && jenkins.getRootUrl () != null )
         {
             this.url = jenkins.getRootUrl () + run.getUrl ();
+            this.proxy = jenkins.proxy;
         }
         else
         {
             this.url = run.getUrl ();
+            this.proxy = null;
         }
     }
 
@@ -61,4 +70,10 @@ public class RunData implements Serializable {
     public String getFullName() {
         return fullName;
     }
+
+    public ProxyConfiguration getProxy ()
+    {
+        return proxy;
+    }
+
 }

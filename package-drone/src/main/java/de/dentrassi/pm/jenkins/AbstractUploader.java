@@ -29,11 +29,11 @@ public abstract class AbstractUploader implements Uploader
 {
     protected static final Charset UTF_8 = Charset.forName ( "UTF-8" );
 
-    protected final RunData runData;
-
     protected final Map<File, String> filesToUpload;
 
     private final DroneClient client;
+
+    private final RunData runData;
 
     private final ServerData serverData;
 
@@ -67,9 +67,11 @@ public abstract class AbstractUploader implements Uploader
 
     protected void setupClient ()
     {
-        this.getClient ().setServerURL ( this.getServerData ().getServerURL () );
-        this.getClient ().setCredentials ( "deploy", this.getServerData ().getDeployKey () );
-        this.getClient ().setChannel ( this.getServerData ().getChannel () );
+        // here use getClient() to get the mocked one in test unit
+        this.getClient ().setServerURL ( this.serverData.getServerURL () );
+        this.getClient ().setCredentials ( "deploy", this.serverData.getDeployKey () );
+        this.getClient ().setChannel ( this.serverData.getChannel () );
+        this.getClient ().setProxy ( this.runData.getProxy () );
     }
 
     protected DroneClient getClient ()

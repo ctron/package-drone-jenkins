@@ -10,8 +10,9 @@
  *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
@@ -22,7 +23,6 @@ import org.apache.http.client.fluent.MockExecutor;
 import org.apache.http.client.fluent.Response;
 
 import de.dentrassi.pm.jenkins.http.DroneClient;
-import hudson.ProxyConfiguration;
 
 abstract class AbstractUploaderTest
 {
@@ -44,12 +44,6 @@ abstract class AbstractUploaderTest
             protected Executor createExecutor ()
             {
                 return executor;
-            }
-
-            @Override
-            protected ProxyConfiguration getProxy ()
-            {
-                return null;
             }
         };
     }

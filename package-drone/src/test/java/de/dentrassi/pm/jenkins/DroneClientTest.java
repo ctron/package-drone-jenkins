@@ -89,19 +89,7 @@ public class DroneClientTest
     {
         final Executor executor = mockExecutor ();
 
-        DroneClient droneClient = new DroneClient () {
-            @Override
-            protected Executor createExecutor ()
-            {
-                return executor;
-            }
-
-            @Override
-            protected ProxyConfiguration getProxy ()
-            {
-                return null;
-            }
-        };
+        DroneClient droneClient = mockClient ( executor );
 
         try ( DroneClient client = droneClient )
         {
@@ -130,7 +118,8 @@ public class DroneClientTest
         Executor executor = mockExecutor ();
         ProxyConfiguration proxy = new ProxyConfiguration ( "http://localhost", 8080, "anonymous", "password" );
 
-        DroneClient droneClient = mockClient ( executor, proxy );
+        DroneClient droneClient = mockClient ( executor );
+        droneClient.setProxy ( proxy );
 
         try ( DroneClient client = droneClient )
         {
@@ -165,22 +154,15 @@ public class DroneClientTest
         }
     }
 
-    private DroneClient mockClient ( final Executor executor, final ProxyConfiguration proxy )
+    private DroneClient mockClient ( final Executor executor )
     {
-        DroneClient droneClient = new DroneClient () {
+        return new DroneClient () {
             @Override
             protected Executor createExecutor ()
             {
                 return executor;
             }
-
-            @Override
-            protected ProxyConfiguration getProxy ()
-            {
-                return proxy;
-            }
         };
-        return droneClient;
     }
 
     @Test
@@ -188,7 +170,7 @@ public class DroneClientTest
     {
         Executor executor = mockExecutor ();
 
-        DroneClient droneClient = mockClient ( executor, null );
+        DroneClient droneClient = mockClient ( executor );
 
         try ( DroneClient client = droneClient )
         {
@@ -220,7 +202,7 @@ public class DroneClientTest
     {
         Executor executor = mockExecutor ();
 
-        DroneClient droneClient = mockClient ( executor, null );
+        DroneClient droneClient = mockClient ( executor );
 
         try ( DroneClient client = droneClient )
         {
