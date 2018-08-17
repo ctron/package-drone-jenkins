@@ -18,12 +18,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.http.HttpEntity;
@@ -36,8 +31,8 @@ import org.eclipse.packagedrone.repo.api.upload.UploadResult;
 
 import com.google.gson.GsonBuilder;
 
+import de.dentrassi.pm.jenkins.UploaderResult.ArtifactResult;
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
-import hudson.console.ExpandableDetailsNote;
 
 public class UploaderV3 extends AbstractUploader
 {
@@ -153,13 +148,6 @@ public class UploaderV3 extends AbstractUploader
         try
         {
             final UploadResult result = new GsonBuilder ().create ().fromJson ( string, UploadResult.class );
-
-            this.listener.getLogger ().print ( "Uploaded to chanel: " );
-            this.listener.hyperlink ( URLMaker.make ( this.getServerData().getServerURL (), this.getServerData().getChannel () ), this.getServerData().getChannel () );
-            this.listener.getLogger ().println ();
-            this.listener.annotate ( makeArtifactsList ( result ) );
-            this.listener.getLogger ().println ();
-
             createArtifactsMap ( result );
         }
         catch ( final Exception e )
@@ -168,124 +156,17 @@ public class UploaderV3 extends AbstractUploader
         }
     }
 
-    private static class Entry
-    {
-        private final String name;
-
-        private final String id;
-
-        private final boolean rejected;
-
-        private final String reason;
-
-        private final ArtifactInformation artifactInformation;
-
-        public Entry ( final String name, final String id, final boolean rejected, final String reason, final ArtifactInformation artifactInformation )
-        {
-            this.name = name;
-            this.id = id;
-            this.rejected = rejected;
-            this.reason = reason;
-            this.artifactInformation = artifactInformation;
-        }
-
-        public String getName ()
-        {
-            return this.name;
-        }
-
-        public String getId ()
-        {
-            return this.id;
-        }
-
-        public boolean isRejected ()
-        {
-            return this.rejected;
-        }
-
-        public String getReason ()
-        {
-            return this.reason;
-        }
-
-        public ArtifactInformation getArtifactInformation ()
-        {
-            return this.artifactInformation;
-        }
-    }
-
     private void createArtifactsMap ( final UploadResult result )
     {
         for ( final ArtifactInformation ai : result.getCreatedArtifacts () )
         {
-            uploadedArtifacts.put ( ai.getId (), ai.getName () );
+            uploadedArtifacts.add ( new ArtifactResult ( ai.getId (), ai.getName (), ai.getSize (), ai.getErrors (), ai.getWarnings () ) );
         }
-    }
 
-    private ExpandableDetailsNote makeArtifactsList ( final UploadResult result )
-    {
-        final List<Entry> entries = new ArrayList<> ( result.getCreatedArtifacts ().size () + result.getRejectedArtifacts ().size () );
-
-        for ( final ArtifactInformation ai : result.getCreatedArtifacts () )
+        for ( final RejectedArtifact ai : result.getRejectedArtifacts () )
         {
-            entries.add ( new Entry ( ai.getName (), ai.getId (), false, null, ai ) );
+            uploadedArtifacts.add ( new ArtifactResult ( ai.getName (), ai.getReason (), -1 ) );
         }
-
-        for ( final RejectedArtifact ra : result.getRejectedArtifacts () )
-        {
-            entries.add ( new Entry ( ra.getName (), null, true, ra.getReason (), null ) );
-        }
-
-        Collections.sort ( entries, new Comparator<Entry> () {
-            @Override
-            public int compare ( final Entry o1, final Entry o2 )
-            {
-                return o1.getName ().compareTo ( o2.getName () );
-            }
-        } );
-
-        final StringBuilder sb = new StringBuilder ();
-
-        sb.append ( "<table>" );
-        sb.append ( "<thead><tr><th>Name</th><th>Result</th><th>Size</th><th>Validation</th></tr></thead>" );
-
-        sb.append ( "<tbody>" );
-        for ( final Entry entry : entries )
-        {
-            sb.append ( "<tr>" );
-
-            sb.append ( "<td>" ).append ( entry.getName () ).append ( "</td>" );
-            if ( !entry.isRejected () )
-            {
-                sb.append ( "<td>" ).append ( "<a target=\"_blank\" href=\"" ).append ( URLMaker.make ( this.getServerData().getServerURL (), result.getChannelId (), entry.getId () ) ).append ( "\">" ).append ( entry.getId () ).append ( "</a>" ).append ( "</td>" );
-                sb.append ( "<td>" ).append ( entry.getArtifactInformation ().getSize () ).append ( "</td>" );
-
-                sb.append ( "<td>" );
-                if ( entry.getArtifactInformation ().getErrors () > 0 )
-                {
-                    sb.append ( MessageFormat.format ( "{0,choice,1#1 error|1<{0,number,integer} errors}", entry.getArtifactInformation ().getErrors () ) );
-                }
-                if ( entry.getArtifactInformation ().getWarnings () > 0 )
-                {
-                    if ( entry.getArtifactInformation ().getErrors () > 0 )
-                    {
-                        sb.append ( ", " );
-                    }
-                    sb.append ( MessageFormat.format ( "{0,choice,1#1 error|1<{0,number,integer} warnings}", entry.getArtifactInformation ().getErrors () ) );
-                }
-                sb.append ( "</td>" );
-            }
-            else
-            {
-                sb.append ( "<td>" ).append ( entry.getReason () ).append ( "</td>" );
-            }
-
-            sb.append ( "</tr>" );
-        }
-        sb.append ( "</tbody></table>" );
-
-        return new ExpandableDetailsNote ( String.format ( "Uploaded: %s, rejected: %s", result.getCreatedArtifacts ().size (), result.getRejectedArtifacts ().size () ), sb.toString () );
     }
 
 }

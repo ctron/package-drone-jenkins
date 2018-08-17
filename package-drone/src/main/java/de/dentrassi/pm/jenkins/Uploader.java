@@ -13,7 +13,9 @@ package de.dentrassi.pm.jenkins;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.util.Map;
+import java.util.Set;
+
+import de.dentrassi.pm.jenkins.UploaderResult.ArtifactResult;
 
 /**
  * The interface represent a task to perform the physical operations to upload
@@ -40,11 +42,11 @@ public interface Uploader extends Closeable
     public void performUpload () throws IOException;
 
     /**
-     * Returns all artifacts successfully uploaded to the server.
+     * Returns all artifacts uploaded to the server.
      *
-     * @return a map of identifier (assigned by the server) - artifact name
-     *         upload with success.
+     * @return a list of details of uploaded artifacts like identifier (assigned
+     *         by the server) - artifact name and so on.
      */
-    public Map<String, String> getUploadedArtifacts ();
+    public Set<ArtifactResult> getUploadedArtifacts ();
 
 }

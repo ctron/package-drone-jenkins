@@ -20,6 +20,7 @@ import java.util.Set;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 
+import de.dentrassi.pm.jenkins.UploaderResult.ArtifactResult;
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 
 public class UploaderV2 extends AbstractUploader
@@ -31,7 +32,7 @@ public class UploaderV2 extends AbstractUploader
         super ( runData, serverData );
         this.listener = listener;
 
-        listener.info ( "Uploading using Package Drone V2 uploader" );
+        this.listener.info ( "Uploading using Package Drone V2 uploader" );
     }
 
     /*
@@ -55,7 +56,7 @@ public class UploaderV2 extends AbstractUploader
         final Map<String, String> properties = new HashMap<> ();
         fillProperties ( properties );
 
-        final HttpResponse response = getClient().uploadToChannelV2 ( properties, filename, file );
+        final HttpResponse response = getClient ().uploadToChannelV2 ( properties, filename, file );
         final HttpEntity resEntity = response.getEntity ();
 
         if ( resEntity != null )
@@ -63,7 +64,7 @@ public class UploaderV2 extends AbstractUploader
             switch ( response.getStatusLine ().getStatusCode () )
             {
                 case 200:
-                    addUploadedArtifacts ( filename, resEntity );
+                    addUploadedArtifacts ( filename, resEntity, file.length () );
                     break;
                 default:
                     addUploadFailure ( filename, response );
@@ -79,16 +80,11 @@ public class UploaderV2 extends AbstractUploader
         throw new IOException ( Messages.UploaderV2_failedToUpload ( fileName, response.getStatusLine ().getStatusCode (), response.getStatusLine ().getReasonPhrase (), message ) );
     }
 
-    private void addUploadedArtifacts ( final String fileName, final HttpEntity resEntity ) throws IOException
+    private void addUploadedArtifacts ( final String fileName, final HttpEntity resEntity, long size ) throws IOException
     {
         final String artId = makeString ( resEntity );
 
-        uploadedArtifacts.put ( artId, fileName );
-
-        // TODO improve how use the logger
-        this.listener.getLogger ().print (  "Uploaded " );
-        this.listener.hyperlink ( URLMaker.make ( getServerData().getServerURL (), getServerData().getChannel (), artId ), fileName);
-        this.listener.info ( " to channel %s", getServerData().getChannel () );
+        uploadedArtifacts.add ( new ArtifactResult ( artId, fileName, size, 0, 0 ) );
     }
 
 }
