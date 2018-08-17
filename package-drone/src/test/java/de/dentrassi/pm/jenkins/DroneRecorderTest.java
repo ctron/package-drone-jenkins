@@ -21,9 +21,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Set;
 
 import org.hamcrest.CoreMatchers;
 import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
@@ -38,6 +39,7 @@ import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.cloudbees.plugins.credentials.domains.Domain;
 
+import de.dentrassi.pm.jenkins.UploaderResult.ArtifactResult;
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 import hudson.FilePath.FileCallable;
 import hudson.model.FreeStyleBuild;
@@ -144,8 +146,8 @@ public class DroneRecorderTest
     {
         UploaderResult result = new UploaderResult ();
         result.setFailed ( true );
-        HashMap<String, String> artifacts = new HashMap<>();
-        artifacts.put ( "18a1a4ba-f8fa-4a64-bcd2-14e996fb74ac", "file1.jar" );
+        Set<ArtifactResult> artifacts = new LinkedHashSet<> ();
+        artifacts.add ( new ArtifactResult ( "18a1a4ba-f8fa-4a64-bcd2-14e996fb74ac", "file1.jar", 100, 0, 0 ) );
         result.addUploadedArtifacts ( artifacts );
 
         String serverURL = "http://myserver.com/pdrone";
@@ -169,8 +171,8 @@ public class DroneRecorderTest
     {
         UploaderResult result = new UploaderResult ();
         result.setFailed ( true );
-        HashMap<String, String> artifacts = new HashMap<> ();
-        artifacts.put ( "18a1a4ba-f8fa-4a64-bcd2-14e996fb74ac", "file1.jar" );
+        Set<ArtifactResult> artifacts = new LinkedHashSet<> ();
+        artifacts.add ( new ArtifactResult ( "18a1a4ba-f8fa-4a64-bcd2-14e996fb74ac", "file1.jar", 100, 0, 0 ) );
         result.addUploadedArtifacts ( artifacts );
 
         String serverURL = "http://myserver.com/pdrone";
@@ -206,9 +208,9 @@ public class DroneRecorderTest
     public void test_upload_with_success () throws Exception
     {
         UploaderResult result = new UploaderResult ();
-        HashMap<String, String> artifacts = new HashMap<> ();
-        artifacts.put ( "18a1a4ba-f8fa-4a64-bcd2-14e996fb74ac", "file1.jar" );
-        artifacts.put ( "14e996fb74ac-4a64-bcd2-f8fa-18a1a4ba", "file2.jar" );
+        Set<ArtifactResult> artifacts = new LinkedHashSet<> ();
+        artifacts.add ( new ArtifactResult ( "18a1a4ba-f8fa-4a64-bcd2-14e996fb74ac", "file1.jar", 100, 0, 0 ) );
+        artifacts.add ( new ArtifactResult ( "14e996fb74ac-4a64-bcd2-f8fa-18a1a4ba", "file2.jar", 200, 0, 0 ) );
         result.addUploadedArtifacts ( artifacts );
 
         String serverURL = "http://myserver.com";
@@ -227,7 +229,7 @@ public class DroneRecorderTest
         verifyBuildData ( artifacts, serverURL, channel, build );
     }
 
-    private void verifyBuildData ( HashMap<String, String> artifacts, String serverURL, String channel, FreeStyleBuild build )
+    private void verifyBuildData ( Set<ArtifactResult> artifacts, String serverURL, String channel, FreeStyleBuild build )
     {
         BuildData buildData = build.getAction ( BuildData.class );
         Assert.assertThat ( buildData, CoreMatchers.notNullValue () );
@@ -239,11 +241,11 @@ public class DroneRecorderTest
 
         Map<String, String> artifactsInPage = buildData.getArtifacts ();
         Assert.assertThat ( artifactsInPage.size (), CoreMatchers.equalTo ( artifacts.size () ) );
-        for ( Entry<String, String> entry : artifacts.entrySet () )
+        for ( ArtifactResult artifact : artifacts )
         {
-            Assert.assertTrue ( artifactsInPage.containsKey ( entry.getValue () ) );
+            Assert.assertTrue ( artifactsInPage.containsKey ( artifact.getName () ) );
             // verify that value in build data is an URL
-            Assert.assertThat ( artifactsInPage.get ( entry.getValue () ), CoreMatchers.equalTo ( URLMaker.make ( serverURL, channel, entry.getKey () ) ) );
+            Assert.assertThat ( artifactsInPage.get ( artifact.getName () ), CoreMatchers.equalTo ( URLMaker.make ( serverURL, channel, artifact.getId () ) ) );
         }
     }
 

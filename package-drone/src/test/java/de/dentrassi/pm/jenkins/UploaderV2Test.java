@@ -10,9 +10,15 @@
  *******************************************************************************/
 package de.dentrassi.pm.jenkins;
 
-import static org.junit.Assert.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -21,7 +27,7 @@ import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Locale;
-import java.util.Map;
+import java.util.Set;
 import java.util.TimeZone;
 
 import org.apache.http.HttpResponse;
@@ -33,12 +39,14 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.message.BasicStatusLine;
+import org.assertj.core.api.Assertions;
 import org.hamcrest.CoreMatchers;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.ArgumentCaptor;
 
+import de.dentrassi.pm.jenkins.UploaderResult.ArtifactResult;
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 import hudson.util.ReflectionUtils;
 
@@ -127,9 +135,9 @@ public class UploaderV2Test extends AbstractUploaderTest
 
             uploader.performUpload ();
 
-            Map<String, String> uploadedArtifacts = uploader.getUploadedArtifacts ();
-            assertThat ( uploadedArtifacts.keySet (), CoreMatchers.hasItems ( "f1Id", "f2Id" ) );
-            assertThat ( uploadedArtifacts.values (), CoreMatchers.hasItems ( "f1", "f2" ) );
+            Set<ArtifactResult> uploadedArtifacts = uploader.getUploadedArtifacts ();
+            Assertions.assertThat ( uploadedArtifacts ).extracting ( "id" ).contains ( "f1Id", "f2Id" );
+            Assertions.assertThat ( uploadedArtifacts ).extracting ( "name" ).contains ( "f1", "f2" );
         }
     }
 
@@ -164,9 +172,9 @@ public class UploaderV2Test extends AbstractUploaderTest
                 assertThat ( e.getMessage (), CoreMatchers.is ( Messages.UploaderV2_failedToUpload ( "f2", 500, "Internal Server Error", "f2Id" ) ) );
             }
 
-            Map<String, String> uploadedArtifacts = uploader.getUploadedArtifacts ();
-            assertThat ( uploadedArtifacts.keySet (), CoreMatchers.hasItems ( "f1Id" ) );
-            assertThat ( uploadedArtifacts.values (), CoreMatchers.hasItems ( "f1" ) );
+            Set<ArtifactResult> uploadedArtifacts = uploader.getUploadedArtifacts ();
+            Assertions.assertThat ( uploadedArtifacts ).extracting ( "id" ).containsExactly ( "f1Id" );
+            Assertions.assertThat ( uploadedArtifacts ).extracting ( "name" ).containsExactly ( "f1" );
         }
     }
 

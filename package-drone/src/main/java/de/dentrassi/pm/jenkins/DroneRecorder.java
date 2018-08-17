@@ -16,7 +16,9 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import javax.annotation.CheckForNull;
@@ -37,6 +39,7 @@ import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
 
+import de.dentrassi.pm.jenkins.UploaderResult.ArtifactResult;
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 import hudson.AbortException;
 import hudson.EnvVars;
@@ -465,6 +468,13 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
         try
         {
             UploaderResult result = workspace.act ( uploader );
+            // add logs
+            listener.getLogger ().print ( "Uploaded to chanel: " );
+            listener.hyperlink ( URLMaker.make ( serverURL, channel ), channel );
+            listener.getLogger ().println ();
+            listener.annotate ( ConsoleUtils.buildArtifactsList ( serverData, result ) );
+            listener.getLogger ().println ();
+
             if ( ( result.isFailed () && failsAsUpload ) )
             {
                 run.setResult ( Result.FAILURE );
@@ -482,7 +492,12 @@ public class DroneRecorder extends Recorder implements SimpleBuildStep
                 }
             }
 
-            run.addAction ( new BuildData ( this.serverUrl, this.channel, result.getUploadedArtifacts () ) );
+            Map<String, String> uploadedArtifactsMap = new LinkedHashMap<> ();
+            for ( ArtifactResult ar : result.getUploadedArtifacts () )
+            {
+                uploadedArtifactsMap.put ( ar.getId (), ar.getName () );
+            }
+            run.addAction ( new BuildData ( this.serverUrl, this.channel, uploadedArtifactsMap ) );
         }
         catch ( IOException e )
         {

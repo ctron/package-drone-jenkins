@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.TimeZone;
 
 import org.apache.http.HttpResponse;
@@ -40,6 +41,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.message.BasicStatusLine;
+import org.assertj.core.api.Assertions;
 import org.codehaus.plexus.util.ReflectionUtils;
 import org.eclipse.packagedrone.repo.api.upload.ArtifactInformation;
 import org.eclipse.packagedrone.repo.api.upload.UploadError;
@@ -52,6 +54,7 @@ import org.mockito.ArgumentCaptor;
 
 import com.google.gson.Gson;
 
+import de.dentrassi.pm.jenkins.UploaderResult.ArtifactResult;
 import de.dentrassi.pm.jenkins.util.LoggerListenerWrapper;
 
 public class UploaderV3Test extends AbstractUploaderTest
@@ -114,7 +117,7 @@ public class UploaderV3Test extends AbstractUploaderTest
         artifacts.put ( "f1", "f1Id" );
         artifacts.put ( "f2", "f2Id" );
 
-        Map<String, String> uploadedArtifacts = null;
+        Set<ArtifactResult> uploadedArtifacts = null;
 
         // build uploader and mock its internal the http client
         try ( UploaderV3 uploader = spy ( new UploaderV3 ( runData, listener, serverData ) ) )
@@ -132,8 +135,8 @@ public class UploaderV3Test extends AbstractUploaderTest
             uploadedArtifacts = uploader.getUploadedArtifacts ();
         }
 
-        assertThat ( uploadedArtifacts.keySet (), CoreMatchers.hasItems ( artifacts.values ().toArray ( new String[0] ) ) );
-        assertThat ( uploadedArtifacts.values (), CoreMatchers.hasItems ( artifacts.keySet ().toArray ( new String[0] ) ) );
+        Assertions.assertThat ( uploadedArtifacts ).extracting ( "id" ).containsAll ( artifacts.values () );
+        Assertions.assertThat ( uploadedArtifacts ).extracting ( "name" ).containsAll ( artifacts.keySet () );
     }
 
     private UploadResult createHTTPResult ( UploaderV3 uploader, String channelId, Map<String, String> artifacts ) throws IOException
@@ -215,7 +218,7 @@ public class UploaderV3Test extends AbstractUploaderTest
                 assertThat ( e.getMessage (), CoreMatchers.containsString ( payload.getMessage () ) );
             }
 
-            Map<String, String> uploadedArtifacts = uploader.getUploadedArtifacts ();
+            Set<ArtifactResult> uploadedArtifacts = uploader.getUploadedArtifacts ();
             assertTrue ( "expected no uploaded artifacts with success", uploadedArtifacts.isEmpty () );
         }
     }

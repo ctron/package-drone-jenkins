@@ -15,14 +15,16 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.TimeZone;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 
+import de.dentrassi.pm.jenkins.UploaderResult.ArtifactResult;
 import de.dentrassi.pm.jenkins.http.DroneClient;
 
 public abstract class AbstractUploader implements Uploader
@@ -43,13 +45,13 @@ public abstract class AbstractUploader implements Uploader
      * Map containing the id and filename of the successfully uploaded artifacts
      * Fill from the upload results
      */
-    protected final Map<String, String> uploadedArtifacts;
+    protected final Set<ArtifactResult> uploadedArtifacts;
 
     public AbstractUploader ( final RunData runData, ServerData serverData )
     {
         this.runData = runData;
         this.filesToUpload = new LinkedHashMap<> ();
-        this.uploadedArtifacts = new HashMap<> ();
+        this.uploadedArtifacts = new LinkedHashSet<> ();
         this.sdf = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss.SSS" );
         this.sdf.setTimeZone ( TimeZone.getTimeZone ( "UTC" ) );
         this.client = new DroneClient ();
@@ -104,9 +106,9 @@ public abstract class AbstractUploader implements Uploader
      * @see de.dentrassi.pm.jenkins.Uploader#getUploadedArtifacts()
      */
     @Override
-    public Map<String, String> getUploadedArtifacts ()
+    public Set<ArtifactResult> getUploadedArtifacts ()
     {
-        return Collections.unmodifiableMap ( uploadedArtifacts );
+        return Collections.unmodifiableSet ( uploadedArtifacts );
     }
 
     @Override
